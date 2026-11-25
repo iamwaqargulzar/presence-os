@@ -3,19 +3,24 @@
 Last updated: 2026-11-25. Overwrite this file at every handoff; keep it short. Protocol: [README.md](README.md).
 
 ## Phase
-Specification complete. Implementation has not started. Next release: **R0 Engineering Foundation**.
+R0 Engineering Foundation. R0-001 is built and its gates pass; it waits for the owner's review and merge.
 
 ## Repository
-- Git initialised on branch `main` on 2026-11-25. The specification package is the baseline; check `git log` for whether the first commit is made.
-- Not yet pushed. Target: a private GitHub repository under the owner's account (ADR-0032). The owner runs or approves the command that creates it.
+- Private GitHub repository `iamwaqargulzar/presence-os`, created by the owner on 2026-11-25. `main` holds the baseline commit `5eecb64`.
+- R0-001 work is on branch `feat/R0-001-repository-toolchain`. Check `git log` and `gh pr list` for whether it is pushed, has a pull request, or is merged.
+- Branch protection on `main` is not set yet (CONTRIBUTING.md says it should be once the repository exists).
 
 ## Current task
-None in progress. The next task is [R0-001 repository and toolchain](../../specs/R0/R0-001-repository-toolchain.md), followed by R0-002 (CI) and R0-003 (PostgreSQL row-level security). Order: [specs/R0/README.md](../../specs/R0/README.md).
+R0-001 [repository and toolchain](../../specs/R0/R0-001-repository-toolchain.md): done on the branch, report in [evidence/R0/R0-001/report.md](../../evidence/R0/R0-001/report.md). The next task is R0-002 (CI), then R0-003 (PostgreSQL row-level security). Order: [specs/R0/README.md](../../specs/R0/README.md).
 
 The development controller (R0-011) and sandbox (R0-012) do not exist yet. Until they do, R0 tasks are built directly in a session that the operator starts and watches.
 
 ## Next step
-Start a new session. Read this file, then R0-001, then build R0-001 step by step.
+1. If R0-001 is not merged: push the branch, open the pull request, owner reviews and merges.
+2. Start a new session. Read this file, then [R0-002](../../specs/R0/R0-002-ci-environments.md), then build it. CI calls the `make` targets listed in [gates.md](../delivery/gates.md).
+
+## How to work on the code
+Machine setup and gate commands: [developer bootstrap](../runbooks/developer-bootstrap.md). Run `make check` before every commit; the pre-commit hook runs the secret scan and needs Docker.
 
 ## Blockers
 None for R0.
@@ -26,8 +31,10 @@ None for R0.
 - 24 questions for R2 and R3, listed in [ASSUMPTIONS_AND_OPEN_QUESTIONS.md](../ASSUMPTIONS_AND_OPEN_QUESTIONS.md) under "For the owner". None blocks R0 or R1.
 
 ## Known gaps
-- Version numbers and tool names (ADR-0032, ADR-0033) came from web search and memory; R0-001 and each first-use task verify them.
+- The licence-check gate in [gates.md](../delivery/gates.md) has no owning R0 task. Proposal: add it to R0-002.
+- `uv audit` is experimental in uv 0.13.10.
+- Versions for later tools (Temporal, Redis, PostgreSQL 18 minor, Caddy, cloudflared) are still unchecked; each first-use task verifies them.
 - R2 and R3 contracts are revision 1 with no second review; recheck before each release starts.
 
 ## Latest handoff
-[log/2026-11-25-specification-baseline.md](log/2026-11-25-specification-baseline.md)
+[log/2026-11-25-r0-001-repository-toolchain.md](log/2026-11-25-r0-001-repository-toolchain.md)

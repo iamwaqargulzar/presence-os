@@ -7,6 +7,7 @@ Rebuilds docs/MASTER_SPEC.md, docs/COMPLETE_CONTEXT_EXPORT.md and docs/INDEX.md,
 then checks relative Markdown links. Git history is the integrity record.
 Uses only the Python standard library. Exits non-zero if a link is broken.
 """
+
 import datetime
 import pathlib
 import re
@@ -15,7 +16,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TODAY = datetime.date.today().isoformat()
 GENERATED = {"docs/MASTER_SPEC.md", "docs/COMPLETE_CONTEXT_EXPORT.md", "docs/INDEX.md"}
-SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv"}
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".next", ".mypy_cache", ".ruff_cache"}
 
 
 def files():
@@ -60,7 +61,8 @@ def build_master():
 def build_export(all_files):
     parts = [
         "# COMPLETE CONTEXT EXPORT — Presence OS Specification Package\n",
-        f"Generated: {TODAY} by `tools/build_docs.py`. This disaster-recovery file concatenates the current Markdown sources. "
+        f"Generated: {TODAY} by `tools/build_docs.py`. "
+        "This disaster-recovery file concatenates the current Markdown sources. "
         "Original file paths remain the authoritative organization. Archived files are not included.\n",
     ]
     for rel in all_files:
@@ -73,10 +75,13 @@ def build_index(all_files):
     docs = [f for f in all_files if f.startswith("docs/") and f.endswith(".md") and f != "docs/INDEX.md"]
     groups = {}
     for f in docs:
-        rest = f[len("docs/"):]
+        rest = f[len("docs/") :]
         key = rest.split("/")[0] if "/" in rest else rest
         groups.setdefault(key, []).append(f)
-    lines = ["# Documentation Index\n", f"Generated {TODAY} by `tools/build_docs.py`. Files under `archive` are not current.\n"]
+    lines = [
+        "# Documentation Index\n",
+        f"Generated {TODAY} by `tools/build_docs.py`. Files under `archive` are not current.\n",
+    ]
     for key in sorted(groups, key=lambda k: ("/" in groups[k][0][5:], k)):
         lines.append(f"## {key}")
         for f in groups[key]:
@@ -88,7 +93,11 @@ def build_index(all_files):
 def check_links(all_files):
     broken = []
     for rel in all_files:
-        if not rel.endswith(".md") or rel in ("docs/MASTER_SPEC.md", "docs/COMPLETE_CONTEXT_EXPORT.md") or rel.startswith("docs/archive/"):
+        if (
+            not rel.endswith(".md")
+            or rel in ("docs/MASTER_SPEC.md", "docs/COMPLETE_CONTEXT_EXPORT.md")
+            or rel.startswith("docs/archive/")
+        ):
             continue
         base = (ROOT / rel).parent
         for target in re.findall(r"\]\(([^)\s]+)\)", (ROOT / rel).read_text()):

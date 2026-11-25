@@ -91,7 +91,7 @@ Before touching a subsystem, read its focused document and ADRs. `docs/MASTER_SP
 | Secrets | OpenBao or equivalent before any client data is live |
 | Virtualisation | Proxmox VE; Proxmox Backup Server |
 
-Versions follow one rule: the newest stable release that every dependency supports (ADR-0032). Targets on 2026-11-14: Python 3.15, Django 6.1, Node.js newest LTS, Next.js 16, PostgreSQL 18. Package managers: uv and pnpm. Technical defaults for R0 and R1 are in ADR-0033; the model gateway is built in-house. Avoid Kubernetes, Kafka, a graph database or a separate vector database until justified.
+Versions follow one rule: the newest stable release that every dependency supports (ADR-0032). Targets on 2026-11-14: Python 3.15, Django 6.1, Node.js newest LTS, Next.js 16, PostgreSQL 18. Package managers: uv and pnpm. Exact pins are in the repository (R0-001, ADR-0034). Technical defaults for R0 and R1 are in ADR-0033; the model gateway is built in-house. Avoid Kubernetes, Kafka, a graph database or a separate vector database until justified.
 
 ## Deployment
 

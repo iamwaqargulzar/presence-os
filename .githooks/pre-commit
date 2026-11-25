@@ -1,0 +1,3 @@
+#!/bin/sh
+# Blocks a commit whose staged changes contain a credential. Installed by `make bootstrap`.
+exec make -s scan-staged
