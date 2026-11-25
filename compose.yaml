@@ -16,5 +16,17 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
 
+  # Development server only (SQLite in memory, history lost on stop). Production uses PostgreSQL (ADR-0033, R0-009).
+  temporal:
+    image: temporalio/temporal:1.10.1@sha256:b228dadf9cdb6c7c02a1394b89dd76f827aac9760e458fce42f0899a10141225
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--headless"]
+    ports:
+      - "127.0.0.1:${PRESENCE_TEMPORAL_PORT:-17233}:7233"
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
 volumes:
   pgdata:

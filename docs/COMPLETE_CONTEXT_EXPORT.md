@@ -324,6 +324,13 @@ A future need is not sufficient reason to deploy Kubernetes, Kafka, Neo4j, a sep
 
 # Changelog
 
+## 2026-11-25 — R0-005 Temporal foundation
+
+- Temporal worker package `apps/worker/presence_worker`: typed contracts, reference workflow (checkpointed draft, human wait with timeout, revalidated idempotent effect), client with 64 KiB payload limit and workflow ID convention; `make dev-worker`.
+- `temporalio` 1.36.1 added (MIT, review in ADR-0036). Temporal development server 1.10.1 in `compose.yaml`, bound to 127.0.0.1.
+- Unit and replay tests run in `make test`; integration tests (timeout, cancel, retry, duplicate start, oversized payload, worker kill and restart) run in `make test-integration`.
+- Workflow conventions, versioning and worker deployment policy, outbox design: `docs/architecture/workflows-and-temporal.md`; new guide `docs/architecture/how-to-write-a-workflow.md`. ADR-0036.
+
 ## 2026-11-25 — R0-002 CI and environments
 
 - GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.
@@ -593,11 +600,20 @@ Run with `make dev-web`; test with `make test`. Setup: [developer bootstrap](../
 # FILE: `apps/worker/README.md`
 
 # apps/worker
-Future async/browser/sandbox worker code.
+
+Current as of 2026-11-25. Temporal worker for durable workflows (R0-005). Part of the root Python project (`pyproject.toml`).
+
+- `presence_worker/workflows.py` — workflow definitions. Deterministic; never imports activities.
+- `presence_worker/activities.py` — activities: idempotent, small typed inputs, large data by artifact reference.
+- `presence_worker/contracts.py` — typed inputs and outputs shared by both.
+- `presence_worker/client.py` — connection, payload limit, workflow ID convention, start helper.
+- `python -m presence_worker` (or `make dev-worker`) runs a worker on the task queue `presence-default`.
+
+Tests: `make test` runs unit and replay tests (no server). `make test-integration` starts Temporal from `compose.yaml` and runs the integration tests, including the worker-kill recovery test.
+
+Rules and conventions: [Durable workflows and Temporal](../../docs/architecture/workflows-and-temporal.md) and [How to write a workflow](../../docs/architecture/how-to-write-a-workflow.md).
 
 Untrusted generated code and risky parsing/browser activity must run under the documented isolation/network policies.
-
-Current as of 2026-11-25: empty. Worker code will join the root Python project (`pyproject.toml`) when its task starts.
 
 
 ---
@@ -968,6 +984,7 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
 - Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
 - CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. The repository is public (owner, 2026-11-25); `main` requires a pull request and a green `gates` check, also for administrators.
+- Temporal (R0-005, ADR-0036): Python SDK `temporalio` 1.36.1; development server `temporalio/temporal` 1.10.1 (`start-dev`) on 127.0.0.1 only; production server and its PostgreSQL database come with R0-009. One payload at most 64 KiB; workflow ID `{kind}/{tenant_id}/{business_key}`; replay test before every worker deploy.
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.
@@ -2225,6 +2242,48 @@ The repository and its CI logs are public, so nothing confidential may go into t
 
 ## Migration / rollback
 Revert the commit. The local PostgreSQL volume can be removed with `docker compose down -v`.
+
+## Supersedes
+
+## Superseded by
+
+
+---
+
+# FILE: `docs/adrs/ADR-0036-temporal-foundation.md`
+
+# ADR-0036 — Temporal Foundation: Pins, Development Server and Payload Rules
+Status: Accepted (2026-11-25). Made during R0-005 under the owner's delegation in ADR-0032 and ADR-0033.
+
+## Context
+R0-005 needs a Temporal service for local and CI use, a Python client and worker, and tests for determinism, cancellation, retries and worker restarts. ADR-0005 chose Temporal; ADR-0033 section 7 chose the newest stable server, the Python SDK and a separate PostgreSQL database in production. Versions below were checked against PyPI, GitHub releases and Docker Hub on 2026-11-25 and must be rechecked before the next upgrade.
+
+## Decision
+1. **Python SDK `temporalio==1.36.1`.** 1.37.0 was released on 2026-11-24, less than one day before; the one-day release cooldown (ADR-0034) applies to Python packages too. Licence MIT. It ships `abi3` wheels for CPython 3.11 and later and works on the pinned Python 3.15.2: imports, unit tests and integration tests pass. No toolchain change is needed.
+2. **Development server: Temporal CLI image `temporalio/temporal:1.10.1`, pinned by digest** in `compose.yaml`. It runs `temporal server start-dev` (embedded server, SQLite in memory). Its port binds only to `127.0.0.1` (default 17233, `PRESENCE_TEMPORAL_PORT`); the web UI is off (`--headless`). History is lost when the container stops. This server is for development and CI only. Production uses the newest stable server (v1.32.2 on 2026-11-02) with PostgreSQL in its own database and role; R0-009 deploys it.
+3. **No time-skipping test server.** The SDK's time-skipping environment downloads a test-server binary at run time without a pinned checksum. Instead: unit tests use the SDK `Replayer` against a committed history (no server) and run activities in the SDK `ActivityEnvironment`; integration tests run against the compose server with timeouts of one or two seconds. Revisit if the SDK can verify a pinned binary.
+4. **Payload limit.** The client and worker share one data converter whose codec rejects any single payload over 64 KiB (`PayloadTooLargeError`). Larger data goes to the artifact store and history carries an `ArtifactRef` (sha256 and size). Temporal's own limits are much higher; 64 KiB keeps history small and makes "data in history" fail loudly in tests.
+5. **Workflow IDs** are `{kind}/{tenant_id}/{business_key}`. A start uses conflict policy "use existing" and reuse policy "reject duplicate", so a repeated start returns the same run and a finished business key cannot start again.
+6. **Package layout.** `presence_worker.workflows` never imports activity code; workflows call activities by name. A unit test checks the imports.
+
+## Alternatives considered
+- `temporalio/auto-setup` or a full server with PostgreSQL locally: closer to production, but more containers and memory for every developer. The production database setup belongs to R0-009.
+- SDK time-skipping environment: faster timeout tests, but an unverified binary download (rejected above).
+- Temporal's default payload limits only: oversized payloads would still be accepted until about 2 MiB, so tests would not catch the mistake.
+
+## Consequences
+- Dependency review (ADR-0033 section 3): `temporalio` (MIT) brings `nexus-rpc` 1.5.0 (MIT), `protobuf` 7.36.2 (BSD-3-Clause), `types-protobuf` (Apache-2.0) and `typing-extensions` (PSF-2.0). No duplication: no other workflow engine or protobuf library is in the repository. `uv audit` reports no known vulnerabilities on 2026-11-25. The SDK contains a compiled Rust core; its source is public in the same repository.
+- `make services-up` now also starts Temporal; `make test-integration` runs the worker integration tests; `make test` runs the worker unit and replay tests.
+- Shortcuts until other tasks land are listed in `evidence/R0/R0-005/report.md` (tenant context from R0-003, structured logs from R0-006, object store, authorization recheck from R1-003, outbox table).
+
+## Security impact
+Temporal is reachable only on the loopback interface. No secret is stored in workflow inputs or history; the codec limit and a history-size test guard against large tenant data in history. Signals carry no authority (ADR-0003): the reference workflow calls a revalidation step before its side effect.
+
+## Cost/operational impact
+Measured on 2026-11-25 on the development machine: see the report for the dev server's memory use. No paid service.
+
+## Migration / rollback
+Revert the commit and run `docker compose rm -sf temporal`. No business data is stored.
 
 ## Supersedes
 
@@ -3491,6 +3550,34 @@ flowchart TD
 
 ---
 
+# FILE: `docs/architecture/how-to-write-a-workflow.md`
+
+# How to Write a Workflow
+
+Current as of 2026-11-25. For later tasks that add workflows. The reference is `ReferenceWorkflow` in `apps/worker/presence_worker/workflows.py`. Rules: [Durable workflows and Temporal](workflows-and-temporal.md).
+
+## Steps
+1. **Contracts.** Add frozen dataclasses for inputs and outputs to `contracts.py`. Every workflow input starts with `ctx: TenantContext`. Inputs and outputs stay small: put large data in the artifact store and pass an `ArtifactRef`.
+2. **Activities.** Add them to `activities.py` (or a new module beside it) with `@activity.defn(name="...")`. Each activity:
+   - starts with `with tenant_scope(inp.ctx):`, so logs and (after R0-003) the database use the workflow's tenant;
+   - is idempotent: a side effect takes an idempotency key derived from the workflow ID, never a random value;
+   - checkpoints expensive work: store the result, record a marker, and return the stored reference on a retry;
+   - calls `revalidate(ctx, action)` before any external side effect, because time has passed since the human decided.
+3. **Workflow.** Add it to `workflows.py` with `@workflow.defn(name="...")`. Call activities by name with `result_type=`. Do not import activities, `os`, `time`, `random`, `uuid` or I/O; use `workflow.now()`, `workflow.uuid4()` and `workflow.wait_condition`. Give every activity a timeout and a retry policy. Use `WAIT_CANCELLATION_COMPLETED` when an activity must clean up on cancel.
+4. **Signals.** A signal is a message, not a permission. Record who sent it, accept only the first decision, and check authority in an activity before acting.
+5. **Start.** Build the workflow ID with `client.workflow_id(kind, ctx, business_key)` and start it like `client.start_reference`: conflict policy "use existing", reuse policy "reject duplicate".
+6. **Register.** Add the workflow and activities to the `Worker` in `__main__.py`.
+7. **Tests.**
+   - Unit: call activities directly; check idempotency, the checkpoint and tenant separation.
+   - Integration (`test_integration.py`, needs `make services-up`): happy path, timeout, cancel during wait and during an activity, retry keeps the tenant, worker kill and restart.
+   - Replay: record a history (`PRESENCE_RECORD_HISTORY=1`), commit it under `tests/histories/`, and replay it in the unit tests.
+
+## Changing a workflow that may be running
+Read the versioning policy in [Durable workflows and Temporal](workflows-and-temporal.md#versioning-and-worker-deployment). Never edit the command order of a released workflow without `workflow.patched(...)` or a new workflow type, and keep the old replay history passing.
+
+
+---
+
 # FILE: `docs/architecture/modular-monolith.md`
 
 # Modular Monolith Boundaries
@@ -3786,6 +3873,8 @@ Control plane, tenant-generated sites, untrusted workers and GPU inference are s
 
 # Durable Workflows and Temporal
 
+Current as of 2026-11-25. Concrete conventions added by R0-005 ([ADR-0036](../adrs/ADR-0036-temporal-foundation.md)); how-to: [How to write a workflow](how-to-write-a-workflow.md).
+
 ## Principle
 
 Agents do bounded work. Temporal (or the durable workflow layer) owns long waits, retries, schedules and recoverability.
@@ -3813,9 +3902,35 @@ Use workflows for:
 - Support cancellation/revocation.
 - Revalidate authorization and entitlements before delayed side effects.
 
-## Worker upgrades
+## Conventions (R0-005)
 
-Use safe versioned deployments and rollback. Temporal Worker Versioning is treated as a capability to exploit, not a reason to deploy Kubernetes early.
+| Topic | Rule |
+|---|---|
+| Code | `apps/worker/presence_worker`: `workflows.py` (deterministic, never imports activities), `activities.py`, `contracts.py`, `client.py`. |
+| Task queue | `presence-default` until a workload needs its own queue. |
+| Workflow ID | `{kind}/{tenant_id}/{business_key}`; repeated start returns the existing run; a finished ID cannot be reused. |
+| Context | Every input carries `TenantContext` (tenant, profile, trace ID). Activities take the tenant from their input, never from the worker, so a retry on another worker keeps the same tenant. |
+| Logs | Each activity logs workflow ID, run ID, activity, attempt, tenant, profile and trace ID. |
+| Payloads | One payload at most 64 KiB, enforced by the shared data converter. Larger data goes to the artifact store; history carries `ArtifactRef` (sha256, size). |
+| Idempotency | A side effect uses a key derived from the workflow ID (for example `{workflow_id}/apply`) and records it once. |
+| Checkpoints | An expensive stage stores its result and a marker keyed by workflow ID; a retry returns the stored reference. |
+| Human waits | `wait_condition` with a timeout; the first decision wins; a signal carries no authority (ADR-0003); authority is rechecked before the side effect. |
+| Cancellation | Workflows let cancellation propagate; activities that must clean up use `WAIT_CANCELLATION_COMPLETED` and heartbeat. |
+| Local service | `compose.yaml` runs the Temporal development server on `127.0.0.1` only. Production: newest stable server with its own PostgreSQL database (ADR-0033, R0-009). |
+
+## Versioning and worker deployment
+
+A running workflow is replayed by whatever worker picks it up, so workflow code must stay compatible with histories already recorded.
+
+1. A change that does not alter the order or kind of commands (activities, timers, signals awaited) may ship directly.
+2. A change that alters them must use `workflow.patched("<change-id>")` around the new path, or ship as a new workflow type (`Reference` → `ReferenceV2`) while the old type drains. Remove a patch only after no run that started before it remains.
+3. Every workflow has a recorded history in `apps/worker/presence_worker/tests/histories/`. The replay test must pass before a worker is deployed (E-081). A new incompatible version adds a new history file; old files stay until their runs are gone.
+4. Deploy: start new workers, check they poll, then stop old workers with a graceful shutdown. Roll back by redeploying the previous worker image; histories created by the new version must still replay on it, which rule 2 guarantees.
+5. Temporal Worker Versioning (build IDs) is a capability to adopt when deployments need it, not a reason to deploy Kubernetes early. Rollout automation is out of scope for R0.
+
+## Outbox design (not built yet)
+
+Business code that must both change tenant data and start a workflow or publish an event writes an `outbox` row in the same database transaction. Columns: `id`, `tenant_id` (RLS, R0-003), `kind`, `payload` (small JSON, references only), `idempotency_key` (unique per tenant), `created_at`, `dispatched_at`. A dispatcher reads undispatched rows with `FOR UPDATE SKIP LOCKED`, starts the workflow using the idempotency key as business key (so a repeated dispatch returns the same run) and sets `dispatched_at`. The table is built by the first task that needs it, after R0-003, because it must be under row-level security.
 
 ## Eventing
 
@@ -8627,6 +8742,98 @@ Not measured; the desktop session does not expose usage to the worker. No paid s
 
 ## Docs updated
 `README.md`, `00_START_HERE.md`, `CHANGELOG.md`, `apps/*/README.md`, `packages/README.md`, `docs/DECISION_REGISTER.md`, `docs/ASSUMPTIONS_AND_OPEN_QUESTIONS.md`, `docs/delivery/gates.md`, `docs/runbooks/developer-bootstrap.md`, ADR-0034, handoff files.
+
+
+---
+
+# FILE: `evidence/R0/R0-005/report.md`
+
+# Implementation Report — R0-005 Temporal Durable Workflow Foundation
+
+Written 2026-11-25. Spec: [R0-005](../../../specs/R0/R0-005-temporal-foundation.md). Decisions: [ADR-0036](../../../docs/adrs/ADR-0036-temporal-foundation.md).
+
+- Starting commit: `1f5d8a4` (docs(R0-002): record public repository and branch protection on main), on branch `feat/R0-002-ci-environments`.
+- Resulting commit: the head of branch `feat/R0-005-temporal-foundation`. It contains this report, so it cannot name its own hash.
+- Execution profile: autonomous side session started by the operator's coordinating session; operator away. No controller yet (R0-011).
+- Harness: Claude Code, desktop app. Model: Claude Opus 5.5 (`claude-opus-5-5`). Reasoning: default for the session.
+- Task/spec hash: sha256 `25be7fc4987814afb96b70652643026e0fc26cd628d7cedad88f2eab018ced95` of `specs/R0/R0-005-temporal-foundation.md`.
+- Changed files: `apps/worker/presence_worker/` (new), `apps/worker/README.md`, `compose.yaml`, `Makefile`, `pyproject.toml`, `uv.lock`, `.env.example`, `.gitignore`, docs listed below.
+- Migrations: none. The development server keeps history in memory.
+- Rollback: revert the branch; `docker compose rm -sf temporal`. No business data.
+
+## Versions (checked against official sources on 2026-11-25)
+Sources: PyPI JSON API, GitHub releases of `temporalio/temporal`, `temporalio/cli` and `temporalio/sdk-python`, Docker Hub.
+
+| Item | Pinned | Rule applied |
+|---|---|---|
+| `temporalio` (Python SDK) | 1.36.1 | 1.37.0 released 2026-11-24, under one day old: cooldown (ADR-0034). abi3 wheels work on Python 3.15.2. |
+| Temporal CLI image (dev server) | `temporalio/temporal:1.10.1`, digest `sha256:b228dadf…41225` | newest CLI release (2026-11-13). |
+| Temporal server (production) | not deployed here | newest stable is v1.32.2 (2026-11-02); R0-009 deploys it with PostgreSQL. |
+
+## Dependencies (review)
+`uv audit` reports no known vulnerabilities across 25 packages on 2026-11-25. No duplication: there is no other workflow engine or protobuf library in the repository.
+
+| Dependency | Licence | Maintenance | Why needed / duplication |
+|---|---|---|---|
+| temporalio 1.36.1 | MIT | official Temporal SDK; frequent releases (latest 2026-11-24) | workflow engine client and worker (ADR-0005, ADR-0033) |
+| nexus-rpc 1.5.0 (transitive) | MIT | Temporal project | required by the SDK |
+| protobuf 7.36.2 (transitive) | BSD-3-Clause | Google | wire format used by the SDK |
+| types-protobuf (transitive) | Apache-2.0 | typeshed | type stubs |
+| typing-extensions 4.16.0 (transitive) | PSF-2.0 | Python core developers | typing backports |
+| Temporal CLI container (not a package) | MIT | Temporal project | development and CI server only |
+
+## Tests
+- `make check` passes: format, lint, mypy strict (now includes `apps/worker`), Django and web tests, and 7 worker unit tests: one effect per idempotency key, checkpointed stage not recomputed, tenants do not share effect records, oversized payload rejected, unsafe tenant IDs rejected, workflow module does not import activities, and **replay of the committed history** (`tests/histories/reference_v1.json`) against current code.
+- `make test-integration` passes (8 worker integration tests against the compose server, about 45 s): approve path (history under 64 KiB while the draft is above it, history replays), duplicate start returns the same run, human-wait timeout, cancel during the human wait, cancel during the activity (activity sees the cancel and cleans up), retry keeps the same tenant context (attempts 1 and 2 both log the workflow's tenant), oversized start rejected, worker killed and restarted.
+- **Recovery test for R0-010** (`test_worker_killed_mid_run_resumes_without_repeating_stage`): a worker process (`python -m presence_worker`) completed `prepare_draft`, then was killed with SIGKILL while the workflow waited for a human decision. A new worker process started, the decision was signalled, and the workflow completed. History shows `prepare_draft` and `apply_effect` each scheduled exactly once. Result: pass, 2026-11-25.
+- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths stages pass. `gate-selftest` fails on one line, "secret hook passed a seeded credential". Cause, not from this task: in a Git worktree, `.git` is a file pointing outside the folder mounted into the gitleaks container, so gitleaks prints "not a git repository", scans 0 commits and exits 0. The same happens without any R0-005 change. CI uses a normal checkout and is not affected. Follow-up below.
+
+## Security checks
+- Temporal binds only to `127.0.0.1` (`PRESENCE_TEMPORAL_PORT`, default 17233); the web UI is off.
+- Payloads above 64 KiB are rejected by the shared codec; the integration test checks that a larger draft stays out of history.
+- Signals carry no authority: the decision is recorded and `revalidate()` runs before the effect (ADR-0003).
+- Tenant and profile IDs are validated (`[A-Za-z0-9_-]`, bounded length) because they become part of workflow IDs and file paths.
+- No secret in source, history or fixtures; the committed history holds only test IDs and generated text.
+- The SDK time-skipping server is not used because it downloads an unpinned binary (ADR-0036).
+
+## Acceptance criteria
+| Criterion | Evidence |
+|---|---|
+| workflow/activity packages separated | `workflows.py` calls activities by name; unit test checks it imports no activity code |
+| deterministic workflow test | replay unit test on the committed history; integration approve test replays a fresh history |
+| idempotent activity example | `apply_effect` with key `{workflow_id}/apply`; unit test |
+| cancellation | two integration tests (during wait, during activity) |
+| checkpoint/artifact-reference pattern | `prepare_draft` stores the draft by sha256 and returns `ArtifactRef`; unit and restart tests |
+| versioning/deployment policy documented | `docs/architecture/workflows-and-temporal.md` |
+| large payload not stored in history | codec limit, unit and integration tests |
+| worker killed mid-workflow resumes (R0-010) | recovery test above |
+| tenant context matches after retry | integration retry test |
+
+## Cost/resource budget
+Development server baseline on 2026-11-25, idle after the test run: about 134 MiB memory (`docker stats`), image 180 MB, no volume (history in memory). Production with PostgreSQL will need more; R0-009 should measure there.
+
+## Reviewer
+No independent review. The owner should review the pull request; it touches protected paths (`compose.yaml`, `Makefile`), which need the owner's label.
+
+## Cost/tokens/cache
+Not measured; the desktop session does not expose usage. No paid service used.
+
+## Shortcuts (marked `shortcut:` in code)
+- `tenant_scope()` only logs the tenant; R0-003 plugs in the transaction and `set_config` there. The interface (`TenantContext` in every input) does not change.
+- `revalidate()` allows everything until the Action Broker (R1-003).
+- Artifacts and effect records are local files under `var/`; object store and PostgreSQL in R0-009/R1.
+- Worker logs are plain text with the correlation fields; JSON logs and OpenTelemetry in R0-006.
+- Outbox: design only (in the workflows doc), because the table needs row-level security from R0-003.
+
+## Known limitations
+- Metrics from the spec's Observability section (queue backlog, failures and retries, workflow duration) and spans are not built; R0-006 owns telemetry.
+- ADR number 0036 was free on 2026-11-25, but parallel sessions (R0-003, R0-009) may also pick it; renumber at merge if they collide.
+- `temporalio` 1.37.0 was skipped for the cooldown; upgrade in a later change.
+- Integration tests use real one- or two-second timeouts and take about 45 s.
+- Follow-up: `make scan-staged` silently passes inside Git worktrees (see Tests). Needs a fix in the protected `Makefile`, for example mounting the common Git directory, or failing when gitleaks reports an error.
+
+## Docs updated
+`docs/architecture/workflows-and-temporal.md`, new `docs/architecture/how-to-write-a-workflow.md`, `apps/worker/README.md`, `docs/DECISION_REGISTER.md`, `CHANGELOG.md`, ADR-0036; compiled exports rebuilt with `tools/build_docs.py`.
 
 
 ---

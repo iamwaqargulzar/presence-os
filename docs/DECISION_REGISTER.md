@@ -157,6 +157,7 @@
 - Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
 - Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
 - CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. The repository is public (owner, 2026-11-25); `main` requires a pull request and a green `gates` check, also for administrators.
+- Temporal (R0-005, ADR-0036): Python SDK `temporalio` 1.36.1; development server `temporalio/temporal` 1.10.1 (`start-dev`) on 127.0.0.1 only; production server and its PostgreSQL database come with R0-009. One payload at most 64 KiB; workflow ID `{kind}/{tenant_id}/{business_key}`; replay test before every worker deploy.
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.

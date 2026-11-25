@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-25 — R0-005 Temporal foundation
+
+- Temporal worker package `apps/worker/presence_worker`: typed contracts, reference workflow (checkpointed draft, human wait with timeout, revalidated idempotent effect), client with 64 KiB payload limit and workflow ID convention; `make dev-worker`.
+- `temporalio` 1.36.1 added (MIT, review in ADR-0036). Temporal development server 1.10.1 in `compose.yaml`, bound to 127.0.0.1.
+- Unit and replay tests run in `make test`; integration tests (timeout, cancel, retry, duplicate start, oversized payload, worker kill and restart) run in `make test-integration`.
+- Workflow conventions, versioning and worker deployment policy, outbox design: `docs/architecture/workflows-and-temporal.md`; new guide `docs/architecture/how-to-write-a-workflow.md`. ADR-0036.
+
 ## 2026-11-25 — R0-002 CI and environments
 
 - GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.
