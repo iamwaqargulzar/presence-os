@@ -1,0 +1,2 @@
+{"ts": "2026-11-25T12:54:41+0000", "level": "INFO", "logger": "presence.demo", "msg": "Authorization: [REDACTED] [REDACTED] [REDACTED]\nkey [REDACTED] from [REDACTED]", "request_id": "req-demo", "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "tenant_id": "00000000-0000-4000-8000-00000000000a", "headers": {"Authorization": "[REDACTED]", "Cookie": "[REDACTED]"}, "user_email": "[REDACTED]", "status": 200, "redactions": 8}
+({'detail': {'password': '[REDACTED]', 'note': 'key [REDACTED]', 'count': 3}}, 2)

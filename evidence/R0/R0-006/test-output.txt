@@ -1,0 +1,18 @@
+test_log_line_redacts_message_fields_and_exceptions (presence_core.tests.RedactionTests.test_log_line_redacts_message_fields_and_exceptions) ... ok
+test_ordinary_values_are_kept (presence_core.tests.RedactionTests.test_ordinary_values_are_kept) ... ok
+test_context_ids_reach_log_lines_and_end_with_the_block (presence_core.tests.CorrelationTests.test_context_ids_reach_log_lines_and_end_with_the_block) ... ok
+test_continues_valid_incoming_trace (presence_core.tests.CorrelationTests.test_continues_valid_incoming_trace) ... {"ts": "2026-11-25T12:54:42+0000", "level": "INFO", "logger": "presence.request", "msg": "request", "request_id": "6c17eb65cc984adfaf953803436ee444", "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "method": "GET", "path": "/healthz", "status": 200, "duration_ms": 0.2}
+test_replaces_missing_or_invalid_trace (presence_core.tests.CorrelationTests.test_replaces_missing_or_invalid_trace) ... {"ts": "2026-11-25T12:54:42+0000", "level": "INFO", "logger": "presence.request", "msg": "request", "request_id": "570a2dbb08914286868d9747b97ace1d", "trace_id": "22aabdd068656eb6ed11adba77143826", "method": "GET", "path": "/healthz", "status": 200, "duration_ms": 0.1}
+Ran 5 tests in 0.004s
+OK
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying presence_core.0001_tenant_rls_fixtures... OK
+  Applying presence_core.0002_audit...test_append_outside_a_transaction_is_refused (presence_core.tests.AuditTests.test_append_outside_a_transaction_is_refused) ... ok
+test_failed_audit_write_rolls_back_the_operation (presence_core.tests.AuditTests.test_failed_audit_write_rolls_back_the_operation) ... {"ts": "2026-11-25T12:54:55+0000", "level": "WARNING", "logger": "presence.rls", "msg": "rls_denied", "request_id": null, "tenant_id": "00000000-0000-4000-8000-00000000000a", "sqlstate": "42501"}
+test_platform_event_has_no_tenant (presence_core.tests.AuditTests.test_platform_event_has_no_tenant) ... ok
+test_runtime_role_cannot_change_or_delete_audit_rows (presence_core.tests.AuditTests.test_runtime_role_cannot_change_or_delete_audit_rows) ... {"ts": "2026-11-25T12:54:55+0000", "level": "WARNING", "logger": "presence.rls", "msg": "rls_denied", "request_id": null, "tenant_id": "00000000-0000-4000-8000-00000000000a", "sqlstate": "42501"}
+test_tenant_event_is_stored_redacted_and_correlated (presence_core.tests.AuditTests.test_tenant_event_is_stored_redacted_and_correlated) ... ok
+test_tenant_reads_and_writes_only_its_own_audit_rows (presence_core.tests.AuditTests.test_tenant_reads_and_writes_only_its_own_audit_rows) ... {"ts": "2026-11-25T12:54:55+0000", "level": "ERROR", "logger": "presence.audit", "msg": "audit_write_failed", "request_id": null, "tenant_id": "00000000-0000-4000-8000-00000000000a", "action": "test.event", "table": "audit.tenant_event"}
+Ran 6 tests in 0.038s
+OK
