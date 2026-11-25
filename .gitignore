@@ -22,3 +22,6 @@ tmp/
 *.pem
 *.key
 .claude/settings.local.json
+*.tsbuildinfo
+next-env.d.ts
+reports/

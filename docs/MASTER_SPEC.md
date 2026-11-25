@@ -3568,6 +3568,25 @@ Do not casually use production customer data in development.
 
 Flaky tests are defects; quarantine only with owner/expiry and a repair task.
 
+## CI stages (R0-002, 2026-11-25)
+
+`tools/ci_run.py` runs these in order, records each one in `reports/ci-result.json` (schema: `contracts/schemas/ci-result.schema.json`), and fails the run if any stage fails.
+
+| Stage | Command | Covers |
+|---|---|---|
+| static | `make fmt-check lint typecheck` | format, lint, strict typing |
+| unit | `make test` | Django unit tests, contract schemas, CI tool tests, web build and smoke test |
+| integration | `make test-integration` | PostgreSQL from `compose.yaml`; migrations from empty; database tests (tag `integration`) |
+| security | `make audit scan-secrets` | dependency vulnerabilities, secret scan of the whole history |
+| protected-paths | `tools/ci_run.py protected-paths` | pull requests that change CI, gates, specs or agent rules need the owner's label |
+| gate-selftest | `tools/gate_selftest.sh` | every gate still fails on a seeded violation |
+
+Mark a Django test that needs the database with `@tag("integration")`; `make test` excludes it.
+
+## Flaky tests
+
+A flaky test is a defect. It may be quarantined only by the owner, with all three of these written in the pull request that quarantines it: the owner's name, an expiry date at most 14 days away, and the repair task. Quarantine means `@unittest.skip("quarantined until YYYY-MM-DD: <task>")`; a skip without that text is refused in review.
+
 
 ---
 
@@ -3957,7 +3976,7 @@ This file exists to make loss obvious if the original planning chat is deleted.
 
 # Gates
 
-Current as of 2026-11-14. A gate is a check that must pass before work moves on. A worker saying "done" is never a gate.
+Current as of 2026-11-25. A gate is a check that must pass before work moves on. A worker saying "done" is never a gate.
 
 ## 1. Every change (run by CI and by the development controller in a clean context)
 
@@ -3980,7 +3999,22 @@ Current as of 2026-11-14. A gate is a check that must pass before work moves on.
 | Provenance | spec hash, start commit, versions, diff and gate results are not recorded; or copied third-party code is found |
 | Accessibility checks | a critical regression in a core journey |
 
-Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and R0-011.
+Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and R0-011. Each is a target in the root `Makefile`; exit code 0 means pass, any other code means fail. Renaming a target or changing its meaning is a breaking change.
+
+| Make target | Gates it runs |
+|---|---|
+| `make fmt-check` | Format (ruff, Biome) |
+| `make lint` | Lint (ruff, Biome) |
+| `make typecheck` | Type check (mypy strict, `tsc`) |
+| `make test` | Unit tests, contract schemas, web build and smoke test |
+| `make check` | All four above, in order |
+| `make test-integration` | Integration tests on PostgreSQL from `compose.yaml`: missing-migration check, migrations from empty, database tests (R0-002) |
+| `python3 tools/ci_run.py` | Every CI stage in order; writes `reports/ci-result.json`. Run by GitHub Actions on every pull request and push to `main` (R0-002) |
+| `make audit` | Dependency vulnerability scan (`uv audit`, `pnpm audit --audit-level high`) |
+| `make scan-secrets` | Secret scan of the whole Git history (gitleaks) |
+| `make scan-staged` | Secret scan of staged changes; run by the pre-commit hook |
+
+`tools/gate_selftest.sh` proves each gate fails on a seeded violation. Protected paths are checked by the `protected-paths` CI stage against `.github/protected-paths`. Lockfile changes are visible in the pull-request diff and audited by `make audit`. The other gates in the table above (tenant isolation, authorization, import boundary, licence check, provenance, accessibility) are added by the tasks that introduce what they check.
 
 ## 2. Every task
 

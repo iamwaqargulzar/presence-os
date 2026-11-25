@@ -153,6 +153,10 @@
 - Versions: the newest stable release that every required dependency supports; pinned in the repository (ADR-0032).
 - Package managers: uv (Python), pnpm (Node). No monorepo task runner.
 - Repository: private GitHub with GitHub Actions (default; the owner may change it before the first push).
+- Pinned on 2026-11-25 (R0-001): Python 3.15.2, Node 26.13.1 LTS, Django 6.1.3, Next.js 16.4.6, TypeScript 7.0.2, uv 0.13.10, pnpm 12.23.0. Exact pins live in `.python-version`, `pyproject.toml`, `uv.lock`, `apps/web/package.json` and `apps/web/pnpm-lock.yaml`.
+- Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
+- Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
+- CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. The repository is public (owner, 2026-11-25); `main` requires a pull request and a green `gates` check, also for administrators.
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.

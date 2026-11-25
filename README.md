@@ -33,7 +33,7 @@ An **engineering specification and implementation-control repository**. It conta
 
 ## Project status
 
-Specification complete for R0 and R1; R2 and R3 task contracts written (revision 1). Git initialised on 2026-11-25. No code yet. The live status is in [`docs/handoff/STATUS.md`](docs/handoff/STATUS.md).
+Specification complete for R0 and R1; R2 and R3 task contracts written (revision 1). R0-001 (repository and toolchain) built on 2026-11-25: Django and Next.js skeletons with pinned toolchain and gate commands. Set up a machine with [`docs/runbooks/developer-bootstrap.md`](docs/runbooks/developer-bootstrap.md). The live status is in [`docs/handoff/STATUS.md`](docs/handoff/STATUS.md).
 
 ## Repository layout
 
