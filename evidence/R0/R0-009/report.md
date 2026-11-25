@@ -44,6 +44,7 @@ Both run with host networking because Caddy must reach `core.presence.internal` 
 - Proxmox (8006, SSH) open only to the management set; PostgreSQL and object storage only to Core; inference raw ports bound to localhost and closed in nftables; no Docker socket mounted; nothing listens on the Edge VM's LAN side.
 - The Worker cannot reach the management LAN, the router, the Proxmox host, the Data VM or the inference host.
 - Nothing was connected to or applied on a real host.
+- Secret scan: none of this branch's commits used `--no-verify`. The pre-commit hook ran on commits `1bc2536` and `d8f5b24`, but its gitleaks container could not read the worktree's `.git`. It printed "not a git repository", scanned 0 commits and still passed, so those two commits were not really scanned. After merging the R0-002 fix (`f208a1c`), which mounts the shared `.git`, `make scan-secrets` scanned all 9 commits of HEAD's history and found no leaks. `make check` and `tools/gate_selftest.sh` also pass. The self-test confirms that `scan-staged` rejects a seeded credential in this worktree. This report's commit was the first one the hook really scanned.
 
 ## Acceptance criteria
 | Criterion | Result |
