@@ -68,6 +68,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md`](../docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md) — ADR-0033 — Technical Defaults for R0 and R1
 - [`docs/adrs/ADR-0034-r0-001-tooling-choices.md`](../docs/adrs/ADR-0034-r0-001-tooling-choices.md) — ADR-0034 — R0-001 Tooling Choices and Node Without Corepack
 - [`docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md`](../docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md) — ADR-0035 — CI Pipeline, Result Contract and Protected Paths
+- [`docs/adrs/ADR-0036-postgres-roles-and-tenant-context.md`](../docs/adrs/ADR-0036-postgres-roles-and-tenant-context.md) — ADR-0036 — PostgreSQL Roles, Tenant Context and Forced RLS
 - [`docs/adrs/README.md`](../docs/adrs/README.md) — Architecture Decision Records
 
 ## ai

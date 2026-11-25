@@ -13,17 +13,32 @@ MIDDLEWARE = [
     "presence_core.observability.RequestIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
 ]
-# shortcut: one role owns and uses the tables, R0-003 splits it into migration and runtime roles.
+# Two roles (R0-003, docs/security/database-tenancy-rls.md): the runtime role serves requests under
+# row-level security and owns nothing; the migration role owns the schema and only runs migrations.
+_DB = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": os.environ.get("PRESENCE_DB_NAME", "presence_dev"),
+    "HOST": os.environ.get("PRESENCE_DB_HOST", "127.0.0.1"),
+    "PORT": os.environ.get("PRESENCE_DB_PORT", "15432"),
+}
 DATABASES: dict[str, Any] = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("PRESENCE_DB_NAME", "presence_dev"),
-        "USER": os.environ.get("PRESENCE_DB_USER", "presence"),
-        "PASSWORD": os.environ.get("PRESENCE_DB_PASSWORD", ""),
-        "HOST": os.environ.get("PRESENCE_DB_HOST", "127.0.0.1"),
-        "PORT": os.environ.get("PRESENCE_DB_PORT", "15432"),
-    }
+        **_DB,
+        "USER": "presence_app",
+        "PASSWORD": os.environ.get("PRESENCE_DB_APP_PASSWORD", ""),
+        # Reused connections are safe because the tenant setting is transaction-scoped.
+        "CONN_MAX_AGE": 60,
+        "CONN_HEALTH_CHECKS": True,
+        # Tests reuse the migration role's test database but still connect as presence_app.
+        "TEST": {"MIRROR": "migrator"},
+    },
+    "migrator": {
+        **_DB,
+        "USER": "presence_migrator",
+        "PASSWORD": os.environ.get("PRESENCE_DB_MIGRATOR_PASSWORD", ""),
+    },
 }
+DATABASE_ROUTERS = ["presence_core.tenancy.MigrateWithMigratorOnly"]
 
 USE_TZ = True
 TIME_ZONE = "UTC"

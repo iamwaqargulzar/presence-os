@@ -33,6 +33,8 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "DJ", "RUF"]
 "**/tests/*.py" = ["S"]
 # CI tools run fixed commands from this repository by design.
 "tools/*.py" = ["S603", "S607"]
+# Django declares models, migrations and tests with mutable class attributes by design.
+"apps/core/**" = ["RUF012"]
 
 [tool.mypy]
 strict = true

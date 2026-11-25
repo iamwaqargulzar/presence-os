@@ -52,6 +52,7 @@ test-integration: services-up
 
 services-up:
 	docker compose up -d --wait postgres
+	docker compose exec -T -e PRESENCE_DB_MIGRATOR_PASSWORD -e PRESENCE_DB_APP_PASSWORD postgres sh -s < infra/postgres/roles.sh
 
 services-down:
 	docker compose down

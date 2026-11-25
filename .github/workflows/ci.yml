@@ -33,7 +33,7 @@ jobs:
 
       - name: Per-run test credentials (synthetic, never reused)
         run: |
-          for name in PRESENCE_SECRET_KEY PRESENCE_DB_PASSWORD; do
+          for name in PRESENCE_SECRET_KEY PRESENCE_DB_PASSWORD PRESENCE_DB_MIGRATOR_PASSWORD PRESENCE_DB_APP_PASSWORD; do
             value="$(openssl rand -hex 24)"
             echo "::add-mask::$value"
             echo "$name=$value" >> "$GITHUB_ENV"
