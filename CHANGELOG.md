@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-25 — R0-003 PostgreSQL tenancy and RLS
+
+- Roles `presence_migrator` and `presence_app` (`infra/postgres/roles.sh`, run by `make services-up`); new `.env` values `PRESENCE_DB_MIGRATOR_PASSWORD`, `PRESENCE_DB_APP_PASSWORD`.
+- `presence_core.tenancy`: `tenant_context()`, `protect_tenant_table()`, unprotected-table check, `rls_denied` log. `presence_core.rls_testing`: reusable isolation test case.
+- Fixture tables with forced RLS and a composite foreign key; isolation tests run as the runtime role. ADR-0036.
+
 ## 2026-11-25 — R0-002 CI and environments
 
 - GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.

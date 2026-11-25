@@ -21,11 +21,13 @@ cp .env.example .env
 ```
 `make bootstrap` installs both lockfiles exactly (`--locked`, `--frozen-lockfile`) and turns on the pre-commit secret scan (`git config core.hooksPath .githooks`).
 
-Edit `.env` and set both `PRESENCE_SECRET_KEY` and `PRESENCE_DB_PASSWORD`, each to its own output of:
+Edit `.env` and set `PRESENCE_SECRET_KEY`, `PRESENCE_DB_PASSWORD`, `PRESENCE_DB_MIGRATOR_PASSWORD` and `PRESENCE_DB_APP_PASSWORD`, each to its own output of:
 ```bash
 uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 `.env` is ignored by Git. Never commit it.
+
+Django connects as two roles ([database tenancy](../security/database-tenancy-rls.md)): `make services-up` creates them. Run migrations as the owner role: `uv run python apps/core/manage.py migrate --database migrator`. If your PostgreSQL volume predates R0-003, run `make services-up` once more, or reset it with `docker compose down -v`.
 
 ## 3. Check everything
 ```bash
