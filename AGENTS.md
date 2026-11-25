@@ -83,6 +83,7 @@ Every run should emit durable artifacts:
 - When a session gets long or a task ends, hand off as described in `docs/handoff/README.md`.
 - Write and place documents as described in `docs/DOCUMENTATION_STANDARDS.md`; commit and branch as described in `CONTRIBUTING.md`.
 - Store each finished task's implementation report under `evidence/<release>/<task-id>/`.
+- Work in one Git worktree per task run, as described in `docs/delivery/worktree-workflow.md`. Never add the `owner-approved-protected-change` label to a pull request; only the owner does.
 
 ## Before implementation
 

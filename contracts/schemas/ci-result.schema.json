@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CI result",
+  "description": "Written by tools/ci_run.py as reports/ci-result.json. Read by the R0-011 gate runner. R0-002.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "commit", "started_at", "run_url", "status", "stages"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "run_url": { "type": "string" },
+    "status": { "enum": ["passed", "failed"] },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "status", "exit_code", "duration_s", "log"],
+        "properties": {
+          "name": { "type": "string" },
+          "command": { "type": "string" },
+          "status": { "enum": ["passed", "failed"] },
+          "exit_code": { "type": "integer" },
+          "duration_s": { "type": "number", "minimum": 0 },
+          "log": { "type": "string" }
+        }
+      }
+    }
+  }
+}

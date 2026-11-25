@@ -67,6 +67,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/adrs/ADR-0032-toolchain-versions-and-repository.md`](../docs/adrs/ADR-0032-toolchain-versions-and-repository.md) — ADR-0032 — Toolchain Versions, Package Managers and Repository
 - [`docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md`](../docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md) — ADR-0033 — Technical Defaults for R0 and R1
 - [`docs/adrs/ADR-0034-r0-001-tooling-choices.md`](../docs/adrs/ADR-0034-r0-001-tooling-choices.md) — ADR-0034 — R0-001 Tooling Choices and Node Without Corepack
+- [`docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md`](../docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md) — ADR-0035 — CI Pipeline, Result Contract and Protected Paths
 - [`docs/adrs/README.md`](../docs/adrs/README.md) — Architecture Decision Records
 
 ## ai
@@ -131,6 +132,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/delivery/gates.md`](../docs/delivery/gates.md) — Gates
 - [`docs/delivery/release-plan.md`](../docs/delivery/release-plan.md) — Release Plan
 - [`docs/delivery/testing-strategy.md`](../docs/delivery/testing-strategy.md) — Testing Strategy
+- [`docs/delivery/worktree-workflow.md`](../docs/delivery/worktree-workflow.md) — Coding-Agent Worktree Workflow
 
 ## domains
 - [`docs/domains/cloudflare-strategy.md`](../docs/domains/cloudflare-strategy.md) — Cloudflare Strategy

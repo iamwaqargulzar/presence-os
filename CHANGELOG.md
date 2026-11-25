@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-25 — R0-002 CI and environments
+
+- GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.
+- PostgreSQL 18.7 from `compose.yaml` for local and CI integration tests; psycopg 3.3.9 added (LGPL-3.0, review note in ADR-0035); `django.contrib.contenttypes` so migrations run from empty.
+- New gate targets: `test-integration`, `services-up`, `services-down`. Gate self-test now also covers a broken migration and a known-vulnerable dependency.
+- Protected paths listed in `.github/protected-paths`; changes need the owner's label.
+- Added `docs/delivery/worktree-workflow.md` (linked from `AGENTS.md`), concrete environment conventions, CI stage mapping and the flaky-test rule. ADR-0035.
+
 ## 2026-11-25 — R0-001 repository and toolchain
 
 - Pinned toolchain: Python 3.15.2 (uv 0.13.10), Node 26.13.1 LTS (pnpm 12.23.0), Django 6.1.3, Next.js 16.4.6, React 19.3.1, TypeScript 7.0.2. Lockfiles committed.

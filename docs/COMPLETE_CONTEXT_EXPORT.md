@@ -280,6 +280,7 @@ Every run should emit durable artifacts:
 - When a session gets long or a task ends, hand off as described in `docs/handoff/README.md`.
 - Write and place documents as described in `docs/DOCUMENTATION_STANDARDS.md`; commit and branch as described in `CONTRIBUTING.md`.
 - Store each finished task's implementation report under `evidence/<release>/<task-id>/`.
+- Work in one Git worktree per task run, as described in `docs/delivery/worktree-workflow.md`. Never add the `owner-approved-protected-change` label to a pull request; only the owner does.
 
 ## Before implementation
 
@@ -322,6 +323,14 @@ A future need is not sufficient reason to deploy Kubernetes, Kafka, Neo4j, a sep
 # FILE: `CHANGELOG.md`
 
 # Changelog
+
+## 2026-11-25 — R0-002 CI and environments
+
+- GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.
+- PostgreSQL 18.7 from `compose.yaml` for local and CI integration tests; psycopg 3.3.9 added (LGPL-3.0, review note in ADR-0035); `django.contrib.contenttypes` so migrations run from empty.
+- New gate targets: `test-integration`, `services-up`, `services-down`. Gate self-test now also covers a broken migration and a known-vulnerable dependency.
+- Protected paths listed in `.github/protected-paths`; changes need the owner's label.
+- Added `docs/delivery/worktree-workflow.md` (linked from `AGENTS.md`), concrete environment conventions, CI stage mapping and the flaky-test rule. ADR-0035.
 
 ## 2026-11-25 — R0-001 repository and toolchain
 
@@ -556,8 +565,8 @@ Only the current `main` branch and what is deployed from it are supported.
 # apps/core
 Django core and control-plane modular monolith. Owns business modules and deterministic control logic. External side effects still go through the Action Broker; secrets through the Secrets Broker.
 
-Current as of 2026-11-25 (R0-001): only the `presence_core` project package exists.
-- `presence_core/settings.py`: every setting comes from the environment (see the root `.env.example`). No database until R0-003.
+Current as of 2026-11-25 (R0-002): only the `presence_core` project package exists.
+- `presence_core/settings.py`: every setting comes from the environment (see the root `.env.example`). PostgreSQL from `compose.yaml` since R0-002; one role for now, split into migration and runtime roles by R0-003.
 - `presence_core/urls.py`: `GET /healthz` returns `{"status": "ok"}` and nothing else.
 - `presence_core/observability.py`: request-ID middleware and JSON log formatter. A full OpenTelemetry setup is R0-006.
 
@@ -665,6 +674,8 @@ None. Resolved and built on 2026-11-25: versions and package managers (ADR-0032,
 Decided in ADR-0033 (technical defaults), including the in-house model gateway, primary development worker, sign-in library, Cloudflare Access, Temporal, OpenBao, observability, object storage, sandbox limits, session boundary, data classes, hostname format and the contract gaps.
 
 Still open:
+- branch protection: GitHub offers it for private repositories only on a paid plan (GitHub Pro). Options: upgrade, make the repository public, or rely on the CI protected-path stage and the owner's merge discipline (current state, 2026-11-25; ADR-0035);
+- the licence-check gate has no owning R0 task (proposed: a small follow-up task after R0-002);
 - the registrable domain for hosted client sites and previews (must not be `iamwaqargulzar.com`; needed before anything tenant-generated is put online);
 - the cloud storage target for the offsite backup copy (needed before the first client's production data);
 - left to the named task and recorded in its report: permission catalogue content, action-class and risk table, structure of `scope` and `constraints`, initial limit keys, governor per-class limits and weights, custom-domain and model-revision state names.
@@ -957,6 +968,7 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Pinned on 2026-11-25 (R0-001): Python 3.15.2, Node 26.13.1 LTS, Django 6.1.3, Next.js 16.4.6, TypeScript 7.0.2, uv 0.13.10, pnpm 12.23.0. Exact pins live in `.python-version`, `pyproject.toml`, `uv.lock`, `apps/web/package.json` and `apps/web/pnpm-lock.yaml`.
 - Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
 - Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
+- CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. Branch protection is not available on the free plan for a private repository (owner decision pending).
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.
@@ -2174,6 +2186,48 @@ Revert the commit. No data is involved.
 
 ## Supersedes
 ADR-0032 section 3, the Corepack sentence only.
+
+## Superseded by
+
+
+---
+
+# FILE: `docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md`
+
+# ADR-0035 — CI Pipeline, Result Contract and Protected Paths
+Status: Accepted (2026-11-25). Made during R0-002 under the owner's delegation in ADR-0032 and ADR-0033.
+
+## Context
+R0-002 needs ordered CI stages, a machine-readable result, test databases, protection against a worker hiding a failing gate, and branch protection. On 2026-11-25 GitHub refused the branch protection and rulesets APIs for this private repository: "Upgrade to GitHub Pro or make this repository public to enable this feature."
+
+## Decision
+1. **One CI job.** `.github/workflows/ci.yml` installs exact uv and pnpm versions and runs `tools/ci_run.py`, which runs the `make` gate targets in a fixed order and writes `reports/ci-result.json` (schema `contracts/schemas/ci-result.schema.json`). Every stage runs even after an earlier failure, so one run shows all problems. Reports are uploaded and kept 30 days. Job limit 20 minutes.
+2. **No secrets in CI.** The workflow uses no repository secrets, has a read-only token, uses `pull_request` (never `pull_request_target`) and pins every action by commit. Test credentials are generated per run and masked. A test checks these rules.
+3. **Test database.** PostgreSQL 18.7 from the same `compose.yaml` as local development (ADR-0033). The Django test runner creates `test_<name>`, migrates it from empty and drops it. Until R0-003 one role owns and uses the tables.
+4. **Protected paths.** `.github/protected-paths` lists CI, gate, spec and agent-rule files. A pull request changing any of them fails the `protected-paths` stage until the owner adds the label `owner-approved-protected-change`. Workers must never add it.
+5. **Branch protection.** Not available on the current plan. Until the owner decides (upgrade, public repository, or stay), the rule is: merge only when the CI check on the pull request is green.
+6. **psycopg 3.3.9** (with `psycopg-binary`) is added. Licence LGPL-3.0-only. Review note required by ADR-0033 section 3: it is used unmodified as a separately distributed library through its public API; Presence OS is not distributed to third parties (ADR-0030); it is the PostgreSQL driver Django recommends; no permissive alternative is maintained to the same level. Accepted.
+7. **`django.contrib.contenttypes`** is installed now: it is a framework app every later identity and permissions task needs, and it gives CI real migrations to run from empty.
+
+## Alternatives considered
+- One GitHub job per stage: clearer in the GitHub page, but the result contract would need a merge step and stage order would be spread across files.
+- Required reviewers through CODEOWNERS: GitHub does not let the author approve their own pull request, and every commit is made as the owner, so it would block every merge.
+- Third-party setup actions for uv and pnpm: more supply-chain surface than installing exact versions with pipx and npm.
+
+## Consequences
+- The label and "merge only when green" are rules, not enforced by GitHub. Until R0-012 removes the owner's GitHub login from the worker, a worker could break them; this is recorded in the worktree workflow.
+- The CI job needs Docker on the runner (GitHub-hosted Ubuntu runners have it).
+
+## Security impact
+CI cannot leak a repository secret because it has none. Pull requests from forks run with a read-only token. Logs are redacted of credential-like environment values before they are stored.
+
+## Cost/operational impact
+GitHub Actions minutes for a private repository on the free plan are limited per month; one run takes a few minutes. Artifacts are kept 30 days.
+
+## Migration / rollback
+Revert the commit. The local PostgreSQL volume can be removed with `docker compose down -v`.
+
+## Supersedes
 
 ## Superseded by
 
@@ -4536,11 +4590,13 @@ Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and
 | `make typecheck` | Type check (mypy strict, `tsc`) |
 | `make test` | Unit tests, contract schemas, web build and smoke test |
 | `make check` | All four above, in order |
+| `make test-integration` | Integration tests on PostgreSQL from `compose.yaml`: missing-migration check, migrations from empty, database tests (R0-002) |
+| `python3 tools/ci_run.py` | Every CI stage in order; writes `reports/ci-result.json`. Run by GitHub Actions on every pull request and push to `main` (R0-002) |
 | `make audit` | Dependency vulnerability scan (`uv audit`, `pnpm audit --audit-level high`) |
 | `make scan-secrets` | Secret scan of the whole Git history (gitleaks) |
 | `make scan-staged` | Secret scan of staged changes; run by the pre-commit hook |
 
-`tools/gate_selftest.sh` proves each gate fails on a seeded violation. The other gates in the table above (tenant isolation, authorization, migrations, import boundary, licence check, lockfile review, protected paths, provenance, accessibility) are added by the tasks that introduce what they check.
+`tools/gate_selftest.sh` proves each gate fails on a seeded violation. Protected paths are checked by the `protected-paths` CI stage against `.github/protected-paths`. Lockfile changes are visible in the pull-request diff and audited by `make audit`. The other gates in the table above (tenant isolation, authorization, import boundary, licence check, provenance, accessibility) are added by the tasks that introduce what they check.
 
 ## 2. Every task
 
@@ -4733,6 +4789,55 @@ Do not casually use production customer data in development.
 ## Flakiness
 
 Flaky tests are defects; quarantine only with owner/expiry and a repair task.
+
+## CI stages (R0-002, 2026-11-25)
+
+`tools/ci_run.py` runs these in order, records each one in `reports/ci-result.json` (schema: `contracts/schemas/ci-result.schema.json`), and fails the run if any stage fails.
+
+| Stage | Command | Covers |
+|---|---|---|
+| static | `make fmt-check lint typecheck` | format, lint, strict typing |
+| unit | `make test` | Django unit tests, contract schemas, CI tool tests, web build and smoke test |
+| integration | `make test-integration` | PostgreSQL from `compose.yaml`; migrations from empty; database tests (tag `integration`) |
+| security | `make audit scan-secrets` | dependency vulnerabilities, secret scan of the whole history |
+| protected-paths | `tools/ci_run.py protected-paths` | pull requests that change CI, gates, specs or agent rules need the owner's label |
+| gate-selftest | `tools/gate_selftest.sh` | every gate still fails on a seeded violation |
+
+Mark a Django test that needs the database with `@tag("integration")`; `make test` excludes it.
+
+## Flaky tests
+
+A flaky test is a defect. It may be quarantined only by the owner, with all three of these written in the pull request that quarantines it: the owner's name, an expiry date at most 14 days away, and the repair task. Quarantine means `@unittest.skip("quarantined until YYYY-MM-DD: <task>")`; a skip without that text is refused in review.
+
+
+---
+
+# FILE: `docs/delivery/worktree-workflow.md`
+
+# Coding-Agent Worktree Workflow
+
+Current as of 2026-11-25 (R0-002). Applies to every development run, by a person or an agent. The R0-011 controller automates these steps later; until then the operator follows them.
+
+## One run, one worktree
+1. Start from the newest `main` (or the branch the task contract depends on):
+   `git worktree add ../presence-os-<task-id> -b <type>/<task-id>-<slug> main`
+2. Branch names follow [CONTRIBUTING.md](../../CONTRIBUTING.md): `<type>/<task-id>-<slug>`, for example `feat/R0-003-postgres-rls`. One task per branch.
+3. Run `make bootstrap` inside the worktree. Each worktree has its own `.env`. Use a different `PRESENCE_DB_PORT` (and Compose project, `COMPOSE_PROJECT_NAME=presence-<task-id>`) when two worktrees run integration tests at the same time.
+4. Record the start commit and the task contract's hash in the implementation report (ADR-0028).
+
+## While working
+- Run `make check` before every commit; the pre-commit hook runs the secret scan.
+- A worker never edits its own task contract, the protected paths in `.github/protected-paths`, or the gates, unless the task says so. CI flags every such change.
+
+## Finishing
+1. Push the branch and open a pull request. CI is the only accepted gate result (E-039).
+2. A pull request that touches a protected path stays red until the owner reviews it and adds the label `owner-approved-protected-change`. A worker never adds that label.
+3. After merge or abandonment, clean up:
+   `docker compose -p presence-<task-id> down -v` (if you started services), then `git worktree remove ../presence-os-<task-id>` and `git branch -d <branch>`.
+4. `git worktree prune` removes records of worktrees deleted by hand.
+
+## Known limit
+Until the R0-012 sandbox exists, an agent works with the owner's GitHub login and could add the label itself. The rule above forbids it; the sandbox removes the ability.
 
 
 ---
@@ -5225,6 +5330,17 @@ Feature flags:
 - ALL
 
 Schema changes must support controlled rollout and rollback/forward-fix.
+
+## Concrete conventions (R0-002, 2026-11-25)
+
+| | Local | Test / CI | Staging | Production |
+|---|---|---|---|---|
+| Database | `presence_dev` in the `compose.yaml` PostgreSQL, 127.0.0.1:15432 | `test_<name>`, created and dropped by the Django test runner on every run | its own database on the staging hosts (R0-009) | its own database on the Data VM (R0-009) |
+| Credentials | `.env`, generated by the developer, never committed | generated with `openssl rand` at the start of each CI run and masked; no repository secrets | from OpenBao (R0-008) | from OpenBao (R0-008) |
+| Configuration | `.env` (template: `.env.example`) | workflow environment | deploy configuration (R0-009) | deploy configuration (R0-009) |
+| Data | synthetic only | synthetic only | synthetic, or approved copies | real |
+
+Checked automatically by `tools/tests/test_ci.py`: CI workflows use no `secrets.*`, never use `pull_request_target`, have a read-only token, and pin every action by commit. The CI job has no route to the home network: it runs on GitHub-hosted runners.
 
 
 ---
@@ -6954,7 +7070,7 @@ Before any DNS-provider migration, inventory MX/SPF/DKIM/DMARC and other records
 
 # Developer Bootstrap
 
-Current as of 2026-11-25. Takes a new Linux machine from a clean clone to green gates. Tested from a clean clone on 2026-11-25 (R0-001).
+Current as of 2026-11-25 (R0-002). Takes a new Linux machine from a clean clone to green gates. Tested from a clean clone on 2026-11-25 (R0-001).
 
 ## 1. Install once per machine
 | Tool | Why | How |
@@ -6962,7 +7078,7 @@ Current as of 2026-11-25. Takes a new Linux machine from a clean clone to green 
 | Git, GNU Make | clone and gate commands | system package manager |
 | uv 0.13.10 | installs Python 3.15.2 and the Python packages | [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/); then `uv self update 0.13.10` |
 | pnpm (any 10.x or newer) | installs Node 26.13.1 and the web packages | [pnpm installation guide](https://pnpm.io/installation) |
-| Docker | runs the pinned gitleaks secret scanner | Docker Engine; your user must be able to run `docker` |
+| Docker with Compose | runs PostgreSQL for integration tests and the pinned gitleaks secret scanner | Docker Engine; your user must be able to run `docker` |
 
 You do not install Python or Node yourself. uv reads `.python-version`; pnpm reads `packageManager` and `devEngines` in `apps/web/package.json` and downloads the exact pinned versions. Node 26 no longer ships Corepack (ADR-0034).
 
@@ -6975,7 +7091,7 @@ cp .env.example .env
 ```
 `make bootstrap` installs both lockfiles exactly (`--locked`, `--frozen-lockfile`) and turns on the pre-commit secret scan (`git config core.hooksPath .githooks`).
 
-Edit `.env` and set `PRESENCE_SECRET_KEY` to the output of:
+Edit `.env` and set both `PRESENCE_SECRET_KEY` and `PRESENCE_DB_PASSWORD`, each to its own output of:
 ```bash
 uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
@@ -6984,11 +7100,12 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
 ## 3. Check everything
 ```bash
 make check
+make test-integration
 make audit
 make scan-secrets
 tools/gate_selftest.sh
 ```
-All four must exit 0. The gate names are listed in [gates.md](../delivery/gates.md).
+All five must exit 0. `make test-integration` starts PostgreSQL from `compose.yaml` on 127.0.0.1:15432 (change `PRESENCE_DB_PORT` in `.env` if that port is taken); `make services-down` stops it. `python3 tools/ci_run.py` runs everything exactly as CI does and writes `reports/ci-result.json`. The gate names are listed in [gates.md](../delivery/gates.md).
 
 ## 4. Start the apps
 - `make dev-core`: Django on http://127.0.0.1:8000/healthz returns `{"status": "ok"}`.

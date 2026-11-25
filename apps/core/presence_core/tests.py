@@ -1,7 +1,8 @@
 import json
 import logging
 
-from django.test import SimpleTestCase
+from django.db import connection
+from django.test import SimpleTestCase, TestCase, tag
 
 from presence_core.observability import JsonFormatter
 
@@ -40,3 +41,13 @@ class RequestIdTests(SimpleTestCase):
         out = JsonFormatter().format(record)
         self.assertNotIn("\n", out)
         self.assertEqual(json.loads(out)["msg"], "a\nb")
+
+
+@tag("integration")
+class DatabaseTests(TestCase):
+    def test_migrations_ran_from_empty_on_the_test_database(self) -> None:
+        self.assertTrue(connection.settings_dict["NAME"].startswith("test_"))
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM django_migrations WHERE app = 'contenttypes'")
+            (applied,) = cursor.fetchone()
+        self.assertGreater(applied, 0)

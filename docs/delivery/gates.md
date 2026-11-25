@@ -32,11 +32,13 @@ Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and
 | `make typecheck` | Type check (mypy strict, `tsc`) |
 | `make test` | Unit tests, contract schemas, web build and smoke test |
 | `make check` | All four above, in order |
+| `make test-integration` | Integration tests on PostgreSQL from `compose.yaml`: missing-migration check, migrations from empty, database tests (R0-002) |
+| `python3 tools/ci_run.py` | Every CI stage in order; writes `reports/ci-result.json`. Run by GitHub Actions on every pull request and push to `main` (R0-002) |
 | `make audit` | Dependency vulnerability scan (`uv audit`, `pnpm audit --audit-level high`) |
 | `make scan-secrets` | Secret scan of the whole Git history (gitleaks) |
 | `make scan-staged` | Secret scan of staged changes; run by the pre-commit hook |
 
-`tools/gate_selftest.sh` proves each gate fails on a seeded violation. The other gates in the table above (tenant isolation, authorization, migrations, import boundary, licence check, lockfile review, protected paths, provenance, accessibility) are added by the tasks that introduce what they check.
+`tools/gate_selftest.sh` proves each gate fails on a seeded violation. Protected paths are checked by the `protected-paths` CI stage against `.github/protected-paths`. Lockfile changes are visible in the pull-request diff and audited by `make audit`. The other gates in the table above (tenant isolation, authorization, import boundary, licence check, provenance, accessibility) are added by the tasks that introduce what they check.
 
 ## 2. Every task
 

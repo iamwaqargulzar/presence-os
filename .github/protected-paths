@@ -1,0 +1,13 @@
+# Protected paths (R0-002, E-030, E-031). A pull request that changes any of these fails CI
+# until the owner reviews it and adds the label 'owner-approved-protected-change'.
+# A worker must never add that label. Patterns use fnmatch: '*' also matches '/'.
+.github/*
+Makefile
+compose.yaml
+tools/ci_run.py
+tools/gate_selftest.sh
+tools/tests/*
+specs/*
+contracts/tests/*
+AGENTS.md
+CLAUDE.md

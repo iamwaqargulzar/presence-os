@@ -33,6 +33,8 @@ None. Resolved and built on 2026-11-25: versions and package managers (ADR-0032,
 Decided in ADR-0033 (technical defaults), including the in-house model gateway, primary development worker, sign-in library, Cloudflare Access, Temporal, OpenBao, observability, object storage, sandbox limits, session boundary, data classes, hostname format and the contract gaps.
 
 Still open:
+- branch protection: GitHub offers it for private repositories only on a paid plan (GitHub Pro). Options: upgrade, make the repository public, or rely on the CI protected-path stage and the owner's merge discipline (current state, 2026-11-25; ADR-0035);
+- the licence-check gate has no owning R0 task (proposed: a small follow-up task after R0-002);
 - the registrable domain for hosted client sites and previews (must not be `iamwaqargulzar.com`; needed before anything tenant-generated is put online);
 - the cloud storage target for the offsite backup copy (needed before the first client's production data);
 - left to the named task and recorded in its report: permission catalogue content, action-class and risk table, structure of `scope` and `constraints`, initial limit keys, governor per-class limits and weights, custom-domain and model-revision state names.

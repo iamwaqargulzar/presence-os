@@ -30,6 +30,19 @@ class Seed(unittest.TestCase):
     def test_fails(self) -> None:
         self.fail("seeded")'
 expect_fail test contracts/schemas/seed.schema.json '{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": 5}'
+expect_fail test-integration apps/core/presence_core/migrations/0001_seed_broken.py 'from django.db import migrations
+
+
+class Migration(migrations.Migration):
+    operations = [migrations.RunSQL("THIS IS NOT SQL")]'
+
+# A known-vulnerable dependency (Django 4.2.0 has published advisories), audited by the same tool as `make audit`.
+seed_dir="$(mktemp -d)"
+printf '# /// script\n# dependencies = ["django==4.2.0"]\n# ///\n' > "$seed_dir/seed_vulnerable.py"
+if uv audit --preview-features audit-command --script "$seed_dir/seed_vulnerable.py" >/dev/null 2>&1; then
+  echo "FAIL: dependency audit passed a known-vulnerable package"; failures=$((failures + 1))
+else echo "ok:   dependency audit rejects a known-vulnerable package"; fi
+rm -rf "$seed_dir"
 
 # A credential-shaped value built at run time, so this script itself holds no key pattern.
 fake="ghp_$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)"

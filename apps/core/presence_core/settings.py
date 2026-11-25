@@ -8,13 +8,22 @@ DEBUG = os.environ.get("PRESENCE_DEBUG") == "1"
 ALLOWED_HOSTS = os.environ.get("PRESENCE_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
 
 ROOT_URLCONF = "presence_core.urls"
-INSTALLED_APPS: list[str] = []
+INSTALLED_APPS = ["django.contrib.contenttypes", "presence_core"]
 MIDDLEWARE = [
     "presence_core.observability.RequestIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
 ]
-# No database until R0-003, which adds PostgreSQL with a runtime role that does not own tables.
-DATABASES: dict[str, Any] = {}
+# shortcut: one role owns and uses the tables, R0-003 splits it into migration and runtime roles.
+DATABASES: dict[str, Any] = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("PRESENCE_DB_NAME", "presence_dev"),
+        "USER": os.environ.get("PRESENCE_DB_USER", "presence"),
+        "PASSWORD": os.environ.get("PRESENCE_DB_PASSWORD", ""),
+        "HOST": os.environ.get("PRESENCE_DB_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("PRESENCE_DB_PORT", "15432"),
+    }
+}
 
 USE_TZ = True
 TIME_ZONE = "UTC"

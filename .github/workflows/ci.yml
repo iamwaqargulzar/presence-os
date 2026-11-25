@@ -1,0 +1,59 @@
+# CI pipeline (R0-002). Protected path: changes need the owner's approval label.
+# Holds no secrets: runs unreviewed pull-request code, so it must never use `secrets.*`
+# or the pull_request_target trigger.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install uv and pnpm (exact versions; they install Python and Node)
+        run: |
+          pipx install uv==0.13.10
+          npm install --global pnpm@12.23.0
+
+      - name: Per-run test credentials (synthetic, never reused)
+        run: |
+          for name in PRESENCE_SECRET_KEY PRESENCE_DB_PASSWORD; do
+            value="$(openssl rand -hex 24)"
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+
+      - name: Install locked dependencies
+        run: make bootstrap
+
+      - name: Run stages
+        env:
+          PRESENCE_CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PRESENCE_CI_PROTECTED_APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'owner-approved-protected-change') }}
+          PRESENCE_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 tools/ci_run.py
+
+      - name: Keep reports for 30 days
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-reports
+          path: reports/
+          retention-days: 30
+          if-no-files-found: error
