@@ -89,6 +89,10 @@ No independent review. The owner reviews the protected files before adding the l
 ## Cost/tokens/cache
 Not measured. CI runs on free standard runners (public repository); one run takes about 2 minutes.
 
+## Fixed after the first parallel runs
+- `make scan-secrets` scanned every fetched branch, so one pull request failed on another branch's commit. It now scans only `HEAD`'s history.
+- The gitleaks container could not read a git worktree's `.git` file, so the pre-commit hook and the self-test failed inside worktrees. The shared `.git` directory is now mounted as well. Checked: a seeded credential in a worktree is rejected.
+
 ## Known limitations
 - `uv audit` is experimental.
 - The licence-check gate has no owning task.
