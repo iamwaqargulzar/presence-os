@@ -38,6 +38,7 @@ test:
 	$(TEST_ENV) uv run python apps/core/manage.py test presence_core --exclude-tag integration
 	uv run python -m unittest discover -s contracts/tests
 	uv run python -m unittest discover -s tools/tests
+	uv run python -m unittest discover -s infra/tests
 	$(WEB) build
 	$(WEB) test
 

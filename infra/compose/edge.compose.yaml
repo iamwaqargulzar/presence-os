@@ -1,0 +1,24 @@
+# Edge VM services (ADR-0006): cloudflared dials out to Cloudflare; Caddy is the origin router.
+# Run on the Edge VM: docker compose -f edge.compose.yaml --env-file edge.env up -d
+# No `ports:` — both use the host network and Caddy binds to 127.0.0.1 only, so nothing listens on the LAN.
+# Images are pinned by digest; update both tag and digest after checking the upstream release.
+name: presence-edge
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.2@sha256:55c7e3e8d89d5e8d20b75a82f3602cbf98e06db406e73e282073cfdc5a9a3af6
+    network_mode: host
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run --credentials-file /etc/cloudflared/credentials.json ${PRESENCE_TUNNEL_ID:?set in edge.env}
+    volumes:
+      - ../cloudflare/cloudflared.yml:/etc/cloudflared/config.yml:ro
+      - ${PRESENCE_TUNNEL_CREDENTIALS:?set in edge.env}:/etc/cloudflared/credentials.json:ro
+    depends_on: [caddy]
+  caddy:
+    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      PRESENCE_TEST_HOST: ${PRESENCE_TEST_HOST:?set in edge.env}
+      PRESENCE_CONSOLE_HOST: ${PRESENCE_CONSOLE_HOST:?set in edge.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro

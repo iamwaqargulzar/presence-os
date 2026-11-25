@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-25 — R0-009 infrastructure baseline
+
+- `infra/proxmox`: Proxmox firewall files (default drop, explicit allow list, Worker isolated from everything private), host-only bridges with NAT, `presence.internal` names, VM and backup-job script, inference-host nftables, nightly `pg_dump`, acceptance check script.
+- `infra/compose` and `infra/cloudflare`: Edge VM cloudflared 2026.11.2 and Caddy 2.11.9 pinned by digest, no published ports.
+- `infra/tests` offline checks, run by `make test`. Runbook `docs/runbooks/infrastructure-baseline.md` for the steps on the real hardware; backup strategy, internal RPO/RTO and drill cadence documented.
+
 ## 2026-11-25 — R0-002 CI and environments
 
 - GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.

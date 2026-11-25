@@ -1,0 +1,12 @@
+# Edge VM (cloudflared + Caddy). Install as /etc/pve/firewall/110.fw.
+# cloudflared dials out, so nothing comes in except SSH through the Proxmox host (ProxyJump).
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: DROP
+
+[RULES]
+IN SSH(ACCEPT) -source 10.77.10.1
+OUT ACCEPT -dest 10.77.10.20 -p tcp -dport 3000
+OUT DROP -dest +private
+OUT ACCEPT

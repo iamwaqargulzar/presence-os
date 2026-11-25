@@ -1,0 +1,11 @@
+# Worker VM (Playwright, gVisor sandboxes, development workers). Install as /etc/pve/firewall/140.fw.
+# Runs untrusted code: no route to any private range (management, services, inference). R0-012 narrows egress further.
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: DROP
+
+[RULES]
+IN SSH(ACCEPT) -source 10.77.20.1
+OUT DROP -dest +private
+OUT ACCEPT

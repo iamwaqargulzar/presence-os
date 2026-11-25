@@ -1,0 +1,20 @@
+# Origin router (ADR-0006). cloudflared forwards every tunnel hostname to 127.0.0.1:8080; routing by
+# host happens here so a future static-IP origin changes only what sits in front of Caddy.
+{
+	admin off
+	auto_https off
+	default_bind 127.0.0.1
+}
+
+http://{$PRESENCE_TEST_HOST}:8080 {
+	respond "presence edge ok" 200
+}
+
+# Cloudflare Access (Google sign-in, invitation list) is enforced at the edge before requests reach here.
+http://{$PRESENCE_CONSOLE_HOST}:8080 {
+	reverse_proxy core.presence.internal:3000
+}
+
+http://:8080 {
+	respond 404
+}

@@ -1,0 +1,4 @@
+# cloudflared ingress (locally managed tunnel). Every hostname goes to Caddy, which routes by host
+# and answers 404 for anything unknown; DNS decides which hostnames reach the tunnel at all.
+ingress:
+  - service: http://127.0.0.1:8080

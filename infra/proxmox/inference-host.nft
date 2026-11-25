@@ -1,0 +1,23 @@
+#!/usr/sbin/nft -f
+# Inference host firewall (optional host). Install as /etc/nftables.conf and enable nftables.service.
+# llama.cpp, ComfyUI and voice servers listen on 127.0.0.1 only; only the gateway port is reachable,
+# and only from the Presence host (VM traffic leaves it NATed; the Proxmox firewall limits that to Core).
+define presence_host = 192.0.2.10   # REPLACE: Proxmox host LAN address
+define management = { 192.0.2.0/24, 198.51.100.0/24 }   # REPLACE: same as ipset management
+define gateway_port = 8443
+
+flush ruleset
+table inet presence {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		ct state established,related accept
+		ct state invalid drop
+		iif lo accept
+		ip saddr $management tcp dport 22 accept
+		ip saddr $presence_host tcp dport $gateway_port accept
+		ip saddr $management icmp type echo-request accept
+	}
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+	}
+}

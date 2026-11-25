@@ -61,6 +61,36 @@ This host may stay powered off. Presence OS runs cloud-only by default (ADR-0030
 
 Split further only when scale/security/operations justify it.
 
+## Allocations and names (R0-009)
+
+Built by `infra/proxmox/vms.sh`. Sizes are a starting point (assumption; confirm against host A's real CPU, RAM and disks) and can be changed with `qm set`.
+
+| VM | ID | Name | Bridge | Address | vCPU | RAM | Disk |
+|---|---|---|---|---|---|---|---|
+| Edge | 110 | `edge.presence.internal` | vmbr1 | 10.77.10.10 | 2 | 2 GB | 20 GB |
+| Core | 120 | `core.presence.internal` | vmbr1 | 10.77.10.20 | 4 | 8 GB | 60 GB |
+| Data | 130 | `data.presence.internal` | vmbr1 | 10.77.10.30 | 4 | 8 GB | 200 GB |
+| Worker | 140 | `worker.presence.internal` | vmbr2 | 10.77.20.10 | 8 | 16 GB | 200 GB |
+| Inference (host B) | — | `inference.presence.internal` | LAN | site-specific | — | — | — |
+
+- `vmbr0`: the LAN and management network, as the Proxmox installer created it. Only the host has an address there.
+- `vmbr1` (10.77.10.0/24, services) and `vmbr2` (10.77.20.0/24, worker sandbox): host-only bridges, NAT to the Internet through the host (`infra/proxmox/interfaces.presence`). Nothing on the LAN can open a connection to a VM.
+- Names resolve from `infra/proxmox/presence.internal.hosts`; upstream DNS is public resolvers.
+- SSH to a VM goes through the Proxmox host (`ssh -J`); the VM firewall accepts SSH only from the host's bridge address.
+
+Allowed flows (Proxmox firewall, default drop both ways per VM; `infra/proxmox/firewall/`):
+
+| From | To | Port | Why |
+|---|---|---|---|
+| Edge | Core | 3000 | Caddy to the console |
+| Core | Data | 5432, 3900 | PostgreSQL, object storage |
+| Core | Inference | 8443 | private inference gateway |
+| Edge, Core, Worker | Internet | any | tunnel, providers, crawling (R0-012 narrows the Worker) |
+| Data | Internet | 53, 123, 80, 443 | DNS, time, package updates |
+| Management set | Proxmox host | 8006, 22 | administration |
+
+Everything else between VMs, to the LAN, to the router, to the Proxmox host and to the inference host is dropped. Inference host B runs `infra/proxmox/inference-host.nft`: only the gateway port, only from host A.
+
 ## Administrative access
 
 Proxmox and SSH are reached from the local management network, or remotely through the operator's WireGuard VPN on the router. The VPN is managed by the operator outside this project. Nothing administrative is published through the Cloudflare Tunnel.

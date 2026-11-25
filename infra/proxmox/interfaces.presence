@@ -1,0 +1,27 @@
+# Internal bridges for the R0 VMs (ADR-0033 section 11). Append to /etc/network/interfaces on the
+# Proxmox host and run `ifreload -a`. vmbr0 (LAN, management) stays as the installer created it.
+# The VMs reach the Internet through NAT on the host; nothing on the LAN can open a connection to them.
+
+auto vmbr1
+iface vmbr1 inet static
+	address 10.77.10.1/24
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	# services: Edge 10.77.10.10, Core 10.77.10.20, Data 10.77.10.30
+	post-up   echo 1 > /proc/sys/net/ipv4/ip_forward
+	post-up   iptables -t nat -A POSTROUTING -s 10.77.10.0/24 -o vmbr0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s 10.77.10.0/24 -o vmbr0 -j MASQUERADE
+	# conntrack zone for the Proxmox firewall on NATed bridges (Proxmox network docs, masquerading section)
+	post-up   iptables -t raw -I PREROUTING -i fwbr+ -j CT --zone 1
+	post-down iptables -t raw -D PREROUTING -i fwbr+ -j CT --zone 1
+
+auto vmbr2
+iface vmbr2 inet static
+	address 10.77.20.1/24
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	# worker sandbox: Worker 10.77.20.10
+	post-up   iptables -t nat -A POSTROUTING -s 10.77.20.0/24 -o vmbr0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s 10.77.20.0/24 -o vmbr0 -j MASQUERADE
