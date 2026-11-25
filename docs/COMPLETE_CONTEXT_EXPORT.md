@@ -8888,6 +8888,10 @@ No independent review. The owner reviews the protected files before adding the l
 ## Cost/tokens/cache
 Not measured. CI runs on free standard runners (public repository); one run takes about 2 minutes.
 
+## Fixed after the first parallel runs
+- `make scan-secrets` scanned every fetched branch, so one pull request failed on another branch's commit. It now scans only `HEAD`'s history.
+- The gitleaks container could not read a git worktree's `.git` file, so the pre-commit hook and the self-test failed inside worktrees. The shared `.git` directory is now mounted as well. Checked: a seeded credential in a worktree is rejected.
+
 ## Known limitations
 - `uv audit` is experimental.
 - The licence-check gate has no owning task.
@@ -8939,14 +8943,14 @@ Sources: PyPI JSON API, GitHub releases of `temporalio/temporal`, `temporalio/cl
 - `make check` passes: format, lint, mypy strict (now includes `apps/worker`), Django and web tests, and 7 worker unit tests: one effect per idempotency key, checkpointed stage not recomputed, tenants do not share effect records, oversized payload rejected, unsafe tenant IDs rejected, workflow module does not import activities, and **replay of the committed history** (`tests/histories/reference_v1.json`) against current code.
 - `make test-integration` passes (8 worker integration tests against the compose server, about 45 s): approve path (history under 64 KiB while the draft is above it, history replays), duplicate start returns the same run, human-wait timeout, cancel during the human wait, cancel during the activity (activity sees the cancel and cleans up), retry keeps the same tenant context (attempts 1 and 2 both log the workflow's tenant), oversized start rejected, worker killed and restarted.
 - **Recovery test for R0-010** (`test_killed_worker_resumes_without_repeating_checkpoint`): a worker process (`python -m presence_worker`) completed `prepare_draft`, then was killed with SIGKILL while the workflow waited for a human decision. A new worker process started, the decision was signalled, and the workflow completed. History shows `prepare_draft` and `apply_effect` each scheduled exactly once. Result: pass, 2026-11-25.
-- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths stages pass. `gate-selftest` fails on one line, "secret hook passed a seeded credential". Cause, not from this task: in a Git worktree, `.git` is a file pointing outside the folder mounted into the gitleaks container, so gitleaks prints "not a git repository", scans 0 commits and exits 0. The same happens without any R0-005 change. CI uses a normal checkout and is not affected. Follow-up below.
+- `python3 tools/ci_run.py`, `make scan-secrets` and `tools/gate_selftest.sh`: pass, apart from the protected-paths stage, which needs the owner's label. The first run of this task hit a worktree gap: `make scan-staged` scanned 0 commits and exited 0, so the pre-commit hook ran on every commit but checked nothing. The R0-002 fix (f208a1c, mounting the shared `.git` directory) was merged into this branch, and the self-test now rejects a seeded credential here too.
 
 ## Security checks
 - Temporal binds only to `127.0.0.1` (`PRESENCE_TEMPORAL_PORT`, default 17233); the web UI is off.
 - Payloads above 64 KiB are rejected by the shared codec; the integration test checks that a larger draft stays out of history.
 - Signals carry no authority: the decision is recorded and `revalidate()` runs before the effect (ADR-0003).
 - Tenant and profile IDs are validated (`[A-Za-z0-9._-]`, 1 to 64 characters) because they become part of workflow IDs and file paths.
-- No secret in source, history or fixtures; the committed history holds only test IDs and generated text. Because the worktree hook scans nothing, the changed files were scanned with `gitleaks dir`: no leaks. Test request keys are kept under 10 characters so the generic key rule does not flag the recorded history.
+- No secret in source, history or fixtures. After the R0-002 fix, `make scan-secrets` flagged two `generic-api-key` matches in commit b8cc918, lines 22 and 132 of `tests/histories/reference_v1.json`. Both are base64 Temporal payloads that decode to a synthetic `request_key` (a uuid4 hex the integration test generated), not a credential. c6e7c94 had already re-recorded the history with a short, low-entropy key. Because b8cc918 stays in branch history, `.gitleaksignore` lists exactly those two fingerprints with the reason. The gitleaks rules are unchanged, and `.gitleaksignore` is now in `.github/protected-paths`.
 - The SDK time-skipping server is not used because it downloads an unpinned binary (ADR-0036).
 
 ## Acceptance criteria
@@ -8983,7 +8987,7 @@ Not measured; the desktop session does not expose usage. No paid service used.
 - ADR number 0036 was free on 2026-11-25, but parallel sessions (R0-003, R0-009) may also pick it; renumber at merge if they collide.
 - `temporalio` 1.37.0 was skipped for the cooldown; upgrade in a later change.
 - Integration tests use real one- or two-second timeouts and take about 45 s.
-- Follow-up: `make scan-staged` silently passes inside Git worktrees (see Tests). Needs a fix in the protected `Makefile`, for example mounting the common Git directory, or failing when gitleaks reports an error.
+- Fixed: `make scan-staged` silently passed inside Git worktrees. The R0-002 fix f208a1c is merged here (see Tests).
 
 ## Docs updated
 `docs/architecture/workflows-and-temporal.md`, new `docs/architecture/how-to-write-a-workflow.md`, `apps/worker/README.md`, `docs/DECISION_REGISTER.md`, `CHANGELOG.md`, ADR-0036; compiled exports rebuilt with `tools/build_docs.py`.
