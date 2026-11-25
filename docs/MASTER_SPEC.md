@@ -1827,6 +1827,36 @@ This host may stay powered off. Presence OS runs cloud-only by default (ADR-0030
 
 Split further only when scale/security/operations justify it.
 
+## Allocations and names (R0-009)
+
+Built by `infra/proxmox/vms.sh`. Sizes are a starting point (assumption; confirm against host A's real CPU, RAM and disks) and can be changed with `qm set`.
+
+| VM | ID | Name | Bridge | Address | vCPU | RAM | Disk |
+|---|---|---|---|---|---|---|---|
+| Edge | 110 | `edge.presence.internal` | vmbr1 | 10.77.10.10 | 2 | 2 GB | 20 GB |
+| Core | 120 | `core.presence.internal` | vmbr1 | 10.77.10.20 | 4 | 8 GB | 60 GB |
+| Data | 130 | `data.presence.internal` | vmbr1 | 10.77.10.30 | 4 | 8 GB | 200 GB |
+| Worker | 140 | `worker.presence.internal` | vmbr2 | 10.77.20.10 | 8 | 16 GB | 200 GB |
+| Inference (host B) | — | `inference.presence.internal` | LAN | site-specific | — | — | — |
+
+- `vmbr0`: the LAN and management network, as the Proxmox installer created it. Only the host has an address there.
+- `vmbr1` (10.77.10.0/24, services) and `vmbr2` (10.77.20.0/24, worker sandbox): host-only bridges, NAT to the Internet through the host (`infra/proxmox/interfaces.presence`). Nothing on the LAN can open a connection to a VM.
+- Names resolve from `infra/proxmox/presence.internal.hosts`; upstream DNS is public resolvers.
+- SSH to a VM goes through the Proxmox host (`ssh -J`); the VM firewall accepts SSH only from the host's bridge address.
+
+Allowed flows (Proxmox firewall, default drop both ways per VM; `infra/proxmox/firewall/`):
+
+| From | To | Port | Why |
+|---|---|---|---|
+| Edge | Core | 3000 | Caddy to the console |
+| Core | Data | 5432, 3900 | PostgreSQL, object storage |
+| Core | Inference | 8443 | private inference gateway |
+| Edge, Core, Worker | Internet | any | tunnel, providers, crawling (R0-012 narrows the Worker) |
+| Data | Internet | 53, 123, 80, 443 | DNS, time, package updates |
+| Management set | Proxmox host | 8006, 22 | administration |
+
+Everything else between VMs, to the LAN, to the router, to the Proxmox host and to the inference host is dropped. Inference host B runs `infra/proxmox/inference-host.nft`: only the gateway port, only from host A.
+
 ## Administrative access
 
 Proxmox and SSH are reached from the local management network, or remotely through the operator's WireGuard VPN on the router. The VPN is managed by the operator outside this project. Nothing administrative is published through the Cloudflare Tunnel.
@@ -1966,6 +1996,25 @@ Record:
 Do not invent contractual enterprise RPO/RTO numbers before measuring restore capability.
 
 R0 should define internal recovery objectives, then validate them with drills before publishing commitments.
+
+## R0 strategy and internal objectives (R0-009)
+
+- PostgreSQL: nightly `pg_dump -Fc` per database plus globals at 01:30 on the Data VM (`infra/proxmox/scripts/pg-backup.sh`), kept 7 days on the VM.
+- VMs: nightly Proxmox Backup Server snapshot of all four VMs at 02:30, with the guest agent freezing file systems; keep 7 daily, 4 weekly, 6 monthly. PBS client-side encryption is on; the key is kept offline by the operator, not on host A or C.
+- Second copy: PBS sync to the encrypted USB drive (interim, not offsite; see the Decision Register). Replaced by the cloud target before the first client's production data.
+- Object storage is inside the Data VM snapshot until R0-011 sets a separate policy.
+
+Internal objectives, not commitments; compare each restore drill against them:
+
+| Scope | RPO | RTO |
+|---|---|---|
+| Data VM (database and objects) | 24 h | 4 h |
+| Whole host A rebuilt on replacement hardware | 24 h | 1 working day |
+| Inference host | none (no state) | none (cloud-only fallback) |
+
+Upgrade before the first client's production data: WAL archiving for point-in-time recovery (RPO minutes) and the offsite copy.
+
+On site loss (E-084) the offsite copy, this repository and the PBS encryption key are enough to rebuild: install Proxmox, apply `infra/`, restore the VMs from PBS. On power loss (E-085) the UPS signals a clean shutdown of the VMs and the host (`docs/runbooks/infrastructure-baseline.md`).
 
 ## Failure cases
 

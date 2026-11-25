@@ -191,6 +191,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/runbooks/connector-api-change.md`](../docs/runbooks/connector-api-change.md) — Runbook — External API / Connector Change
 - [`docs/runbooks/custom-domain-onboarding.md`](../docs/runbooks/custom-domain-onboarding.md) — Runbook — Custom Domain Onboarding
 - [`docs/runbooks/developer-bootstrap.md`](../docs/runbooks/developer-bootstrap.md) — Developer Bootstrap
+- [`docs/runbooks/infrastructure-baseline.md`](../docs/runbooks/infrastructure-baseline.md) — Runbook — Infrastructure Baseline (R0-009)
 - [`docs/runbooks/model-harness-qualification.md`](../docs/runbooks/model-harness-qualification.md) — Runbook — Model/Harness Qualification
 - [`docs/runbooks/new-tenant-first-15-minutes.md`](../docs/runbooks/new-tenant-first-15-minutes.md) — Runbook — New Tenant First 15 Minutes
 - [`docs/runbooks/production-deploy.md`](../docs/runbooks/production-deploy.md) — Runbook — Production Deployment

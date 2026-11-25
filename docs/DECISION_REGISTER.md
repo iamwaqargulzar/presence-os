@@ -57,6 +57,8 @@
 - Operator console on its own control-plane hostname through the tunnel.
 - Proxmox and SSH: local network or the operator's WireGuard VPN on the router; never published. The VPN is managed outside this project.
 - No HA cluster; invest in UPS, backups and restore drills.
+- R0-009 network: VMs on host-only bridges with NAT (services `vmbr1`, worker `vmbr2`), Proxmox firewall default-drop in and out per VM with an explicit allow list; the Worker reaches nothing private. Internal names under `presence.internal` from a hosts file. Layout in `docs/infrastructure/topology.md`, files in `infra/`.
+- Edge: cloudflared and Caddy on the Edge VM with host networking, no published ports, Caddy bound to 127.0.0.1; the tunnel sends every hostname to Caddy, which routes by host. Images pinned by digest (cloudflared 2026.11.2, Caddy 2.11.9).
 
 ## Domains
 - control plane and client-generated content use different registrable domains.
@@ -111,6 +113,7 @@
 - Interim second copy: an encrypted USB drive attached to the server. It is not an offsite copy.
 - A cloud storage target replaces it before the first client's data is held in production.
 - The drive is encrypted, and a restore from it is tested like any other backup.
+- R0-009: nightly `pg_dump` at 01:30 plus PBS VM snapshots at 02:30 (keep 7 daily, 4 weekly, 6 monthly), PBS client-side encryption with the key kept offline. Internal objectives RPO 24 h / RTO 4 h for the Data VM. Restore drill before R0 closes, then quarterly.
 
 ## Personal profile
 - The operator's personal presence is its own tenant, separate from every company.

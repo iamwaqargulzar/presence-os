@@ -1,0 +1,7 @@
+# Internal names (ADR-0033: presence.internal). Append to /etc/hosts on every Presence VM.
+# shortcut: static hosts entries, move to router DNS when more than these hosts need names.
+10.77.10.10 edge.presence.internal
+10.77.10.20 core.presence.internal
+10.77.10.30 data.presence.internal
+10.77.20.10 worker.presence.internal
+192.0.2.50 inference.presence.internal # REPLACE: inference host LAN address (same as ipset inference)

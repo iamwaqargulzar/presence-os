@@ -1,0 +1,26 @@
+# Proxmox VE datacenter firewall (R0-009). Install as /etc/pve/firewall/cluster.fw.
+# Replace the 192.0.2.x/198.51.100.x placeholders (documentation ranges) with the local values first.
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[IPSET management] # admin workstations on the LAN and the router's WireGuard range; replaces Proxmox's auto-detected set
+192.0.2.0/24 # REPLACE: management LAN
+198.51.100.0/24 # REPLACE: WireGuard VPN range on the router
+
+[IPSET inference] # private inference host (optional; may be powered off)
+192.0.2.50 # REPLACE: inference host LAN address
+
+[IPSET private] # everything not on the public Internet
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+100.64.0.0/10
+169.254.0.0/16
+
+[RULES]
+# Host: web UI and SSH from the management set only. Nothing is published through the tunnel.
+IN ACCEPT -source +management -p tcp -dport 8006
+IN SSH(ACCEPT) -source +management
+IN Ping(ACCEPT) -source +management

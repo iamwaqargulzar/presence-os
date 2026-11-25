@@ -1,0 +1,14 @@
+# Core VM (Next.js, Django, Temporal, Redis). Install as /etc/pve/firewall/120.fw.
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: DROP
+
+[RULES]
+IN SSH(ACCEPT) -source 10.77.10.1
+IN ACCEPT -source 10.77.10.10 -p tcp -dport 3000
+OUT ACCEPT -dest 10.77.10.30 -p tcp -dport 5432
+OUT ACCEPT -dest 10.77.10.30 -p tcp -dport 3900
+OUT ACCEPT -dest +inference -p tcp -dport 8443
+OUT DROP -dest +private
+OUT ACCEPT

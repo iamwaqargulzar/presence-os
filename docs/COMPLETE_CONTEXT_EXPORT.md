@@ -324,6 +324,12 @@ A future need is not sufficient reason to deploy Kubernetes, Kafka, Neo4j, a sep
 
 # Changelog
 
+## 2026-11-25 — R0-009 infrastructure baseline
+
+- `infra/proxmox`: Proxmox firewall files (default drop, explicit allow list, Worker isolated from everything private), host-only bridges with NAT, `presence.internal` names, VM and backup-job script, inference-host nftables, nightly `pg_dump`, acceptance check script.
+- `infra/compose` and `infra/cloudflare`: Edge VM cloudflared 2026.11.2 and Caddy 2.11.9 pinned by digest, no published ports.
+- `infra/tests` offline checks, run by `make test`. Runbook `docs/runbooks/infrastructure-baseline.md` for the steps on the real hardware; backup strategy, internal RPO/RTO and drill cadence documented.
+
 ## 2026-11-25 — R0-002 CI and environments
 
 - GitHub Actions workflow `.github/workflows/ci.yml` runs `tools/ci_run.py`: static, unit, integration, security, protected-paths and gate-selftest stages; result contract `contracts/schemas/ci-result.schema.json`; reports kept 30 days.
@@ -679,6 +685,17 @@ Still open:
 - the cloud storage target for the offsite backup copy (needed before the first client's production data);
 - left to the named task and recorded in its report: permission catalogue content, action-class and risk table, structure of `scope` and `constraints`, initial limit keys, governor per-class limits and weights, custom-domain and model-revision state names.
 
+## R0-009 assumptions (unverified until applied on the real hardware)
+
+- Host A runs Proxmox VE 9 on Debian 13 with ZFS storage `local-zfs`; host C runs Proxmox Backup Server 4. Versions are checked by the owner at install time.
+- Host A has at least 18 vCPU-worth of threads to share and 34 GB of RAM free for the proposed VM sizes; if not, shrink the Worker first.
+- The 10.77.10.0/24 and 10.77.20.0/24 ranges do not clash with the LAN or the WireGuard range.
+- The router hands out a fixed LAN address to host A and host B, and its WireGuard range is known (it goes in the `management` ipset).
+- The inference host's gateway listens on 8443 (R1-012 builds the gateway; the port is a placeholder until then).
+- The tunnel test hostname is `edge-test.iamwaqargulzar.com`; any hostname under the control-plane domain will do.
+- A UPS with a USB or network signal is attached to host A (model not known; Network UPS Tools is the proposed client).
+- Still open: who runs the external port scan (proposed: the operator from a phone hotspot with `verify.sh internet`).
+
 ## R2/R3 decisions
 
 The R2 and R3 task contracts were written on 2026-11-15 (`specs/R2/`, `specs/R3/`). Each lists its own open decisions with a proposed default. Nothing below is decided. The technical ones can be settled together in one ADR ("technical defaults for R2 and R3"), as ADR-0033 did for R0 and R1.
@@ -868,6 +885,8 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Operator console on its own control-plane hostname through the tunnel.
 - Proxmox and SSH: local network or the operator's WireGuard VPN on the router; never published. The VPN is managed outside this project.
 - No HA cluster; invest in UPS, backups and restore drills.
+- R0-009 network: VMs on host-only bridges with NAT (services `vmbr1`, worker `vmbr2`), Proxmox firewall default-drop in and out per VM with an explicit allow list; the Worker reaches nothing private. Internal names under `presence.internal` from a hosts file. Layout in `docs/infrastructure/topology.md`, files in `infra/`.
+- Edge: cloudflared and Caddy on the Edge VM with host networking, no published ports, Caddy bound to 127.0.0.1; the tunnel sends every hostname to Caddy, which routes by host. Images pinned by digest (cloudflared 2026.11.2, Caddy 2.11.9).
 
 ## Domains
 - control plane and client-generated content use different registrable domains.
@@ -922,6 +941,7 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Interim second copy: an encrypted USB drive attached to the server. It is not an offsite copy.
 - A cloud storage target replaces it before the first client's data is held in production.
 - The drive is encrypted, and a restore from it is tested like any other backup.
+- R0-009: nightly `pg_dump` at 01:30 plus PBS VM snapshots at 02:30 (keep 7 daily, 4 weekly, 6 monthly), PBS client-side encryption with the key kept offline. Internal objectives RPO 24 h / RTO 4 h for the Data VM. Restore drill before R0 closes, then quarterly.
 
 ## Personal profile
 - The operator's personal presence is its own tenant, separate from every company.
@@ -5325,6 +5345,25 @@ Do not invent contractual enterprise RPO/RTO numbers before measuring restore ca
 
 R0 should define internal recovery objectives, then validate them with drills before publishing commitments.
 
+## R0 strategy and internal objectives (R0-009)
+
+- PostgreSQL: nightly `pg_dump -Fc` per database plus globals at 01:30 on the Data VM (`infra/proxmox/scripts/pg-backup.sh`), kept 7 days on the VM.
+- VMs: nightly Proxmox Backup Server snapshot of all four VMs at 02:30, with the guest agent freezing file systems; keep 7 daily, 4 weekly, 6 monthly. PBS client-side encryption is on; the key is kept offline by the operator, not on host A or C.
+- Second copy: PBS sync to the encrypted USB drive (interim, not offsite; see the Decision Register). Replaced by the cloud target before the first client's production data.
+- Object storage is inside the Data VM snapshot until R0-011 sets a separate policy.
+
+Internal objectives, not commitments; compare each restore drill against them:
+
+| Scope | RPO | RTO |
+|---|---|---|
+| Data VM (database and objects) | 24 h | 4 h |
+| Whole host A rebuilt on replacement hardware | 24 h | 1 working day |
+| Inference host | none (no state) | none (cloud-only fallback) |
+
+Upgrade before the first client's production data: WAL archiving for point-in-time recovery (RPO minutes) and the offsite copy.
+
+On site loss (E-084) the offsite copy, this repository and the PBS encryption key are enough to rebuild: install Proxmox, apply `infra/`, restore the VMs from PBS. On power loss (E-085) the UPS signals a clean shutdown of the VMs and the host (`docs/runbooks/infrastructure-baseline.md`).
+
 ## Failure cases
 
 Document recovery from:
@@ -5575,6 +5614,36 @@ This host may stay powered off. Presence OS runs cloud-only by default (ADR-0030
 - development workers, including the official Claude Code harness signed in with the operator's subscription
 
 Split further only when scale/security/operations justify it.
+
+## Allocations and names (R0-009)
+
+Built by `infra/proxmox/vms.sh`. Sizes are a starting point (assumption; confirm against host A's real CPU, RAM and disks) and can be changed with `qm set`.
+
+| VM | ID | Name | Bridge | Address | vCPU | RAM | Disk |
+|---|---|---|---|---|---|---|---|
+| Edge | 110 | `edge.presence.internal` | vmbr1 | 10.77.10.10 | 2 | 2 GB | 20 GB |
+| Core | 120 | `core.presence.internal` | vmbr1 | 10.77.10.20 | 4 | 8 GB | 60 GB |
+| Data | 130 | `data.presence.internal` | vmbr1 | 10.77.10.30 | 4 | 8 GB | 200 GB |
+| Worker | 140 | `worker.presence.internal` | vmbr2 | 10.77.20.10 | 8 | 16 GB | 200 GB |
+| Inference (host B) | — | `inference.presence.internal` | LAN | site-specific | — | — | — |
+
+- `vmbr0`: the LAN and management network, as the Proxmox installer created it. Only the host has an address there.
+- `vmbr1` (10.77.10.0/24, services) and `vmbr2` (10.77.20.0/24, worker sandbox): host-only bridges, NAT to the Internet through the host (`infra/proxmox/interfaces.presence`). Nothing on the LAN can open a connection to a VM.
+- Names resolve from `infra/proxmox/presence.internal.hosts`; upstream DNS is public resolvers.
+- SSH to a VM goes through the Proxmox host (`ssh -J`); the VM firewall accepts SSH only from the host's bridge address.
+
+Allowed flows (Proxmox firewall, default drop both ways per VM; `infra/proxmox/firewall/`):
+
+| From | To | Port | Why |
+|---|---|---|---|
+| Edge | Core | 3000 | Caddy to the console |
+| Core | Data | 5432, 3900 | PostgreSQL, object storage |
+| Core | Inference | 8443 | private inference gateway |
+| Edge, Core, Worker | Internet | any | tunnel, providers, crawling (R0-012 narrows the Worker) |
+| Data | Internet | 53, 123, 80, 443 | DNS, time, package updates |
+| Management set | Proxmox host | 8006, 22 | administration |
+
+Everything else between VMs, to the LAN, to the router, to the Proxmox host and to the inference host is dropped. Inference host B runs `infra/proxmox/inference-host.nft`: only the gateway port, only from host A.
 
 ## Administrative access
 
@@ -7045,6 +7114,8 @@ These are suggestions for the R2/R3 task contracts, not decisions. Items 3 to 6 
 
 Set an initial cadence in R0 and tighten as production importance grows.
 
+R0 cadence (R0-009): one full drill before R0 closes, then one each quarter and after any change to the backup setup. Record each drill from `evidence/R0/R0-009/restore-drill.md` and compare it with the objectives in `docs/infrastructure/backup-disaster-recovery.md`. Monthly from the first client's production data.
+
 ## Drill
 
 1. Select backup set and target recovery point.
@@ -7166,6 +7237,72 @@ Both bind to 127.0.0.1 only. Both print one JSON log line per request with a `re
 - `Required uv version ... does not match`: run `uv self update 0.13.10`.
 - pnpm refuses a package "within the minimumReleaseAge cutoff": the package is less than a day old. Pin the previous release; do not add an exception without a review (ADR-0034).
 - `make scan-staged` or a commit fails with a Docker error: Docker is not running or your user cannot use it. The hook fails closed on purpose.
+
+
+---
+
+# FILE: `docs/runbooks/infrastructure-baseline.md`
+
+# Runbook — Infrastructure Baseline (R0-009)
+
+The operator applies `infra/` to the real hardware with these steps. Nothing here is run from a coding environment. Fill the placeholders (`192.0.2.x`, `198.51.100.x`, `REPLACE`) on the host, not in the repository: the repository is public.
+
+## Before you start
+
+- Proxmox VE installed on host A, Proxmox Backup Server on host C, both reachable only from the LAN.
+- Record the installed versions (`pveversion`, `proxmox-backup-manager versions`) in the evidence file.
+- Fixed LAN addresses for host A and host B on the router; WireGuard range known.
+- A copy of this repository on host A (for example `git clone` into `/root/presence-os`).
+
+## 1. Network and firewall on host A
+
+1. Append `infra/proxmox/interfaces.presence` to `/etc/network/interfaces`; run `ifreload -a`; check `ip -br a` shows `vmbr1` and `vmbr2`.
+2. Copy `infra/proxmox/firewall/*.fw` to `/etc/pve/firewall/`. Replace the placeholders in `cluster.fw` with the management LAN, the WireGuard range and the inference host address.
+3. Before enabling, open a second SSH session from the management set; then `pve-firewall compile` and `pve-firewall status`. If you are locked out, use the console and `pve-firewall stop`.
+4. Check the web UI still opens from the LAN and from the VPN, and not from any other address.
+
+## 2. Backup storage
+
+1. On host C, create a datastore and a user with the `DatastoreBackup` role only on that datastore.
+2. On host A: Datacenter → Storage → Add → Proxmox Backup Server, ID `pbs`, with host C's fingerprint and the user above, and Encryption set to auto-generate a key.
+3. Copy the generated key (`/etc/pve/priv/storage/pbs.enc`) to the offline place you keep recovery keys (paper or encrypted USB kept away from the server). Without it no backup can be restored.
+4. On host C, add a sync job or `proxmox-backup-client` copy to the encrypted USB drive (interim second copy).
+
+## 3. VMs
+
+1. Download the Debian 13 generic cloud image and its `SHA512SUMS` from `https://cloud.debian.org/images/cloud/trixie/latest/`; check the sum (`sha512sum -c --ignore-missing SHA512SUMS`); save it as `/var/lib/vz/template/debian-13-genericcloud-amd64.qcow2`.
+2. `SSH_KEYS=/root/operator.pub infra/proxmox/vms.sh`, then start the VMs.
+3. On every VM: `apt install qemu-guest-agent`, append `infra/proxmox/presence.internal.hosts` to `/etc/hosts` (set the inference address), enable unattended security upgrades.
+4. Data VM: install PostgreSQL, copy `infra/proxmox/scripts/pg-backup.sh` to `/usr/local/sbin/`, cron `30 1 * * * root /usr/local/sbin/pg-backup.sh`. Run it once by hand.
+
+## 4. Edge and tunnel
+
+Follow `infra/cloudflare/README.md`, then on the Edge VM: install Docker, copy `infra/compose` and `infra/cloudflare`, create `edge.env` from `edge.env.example`, `docker compose -f edge.compose.yaml --env-file edge.env up -d`. Check `ss -tlnp` shows only `127.0.0.1:8080` and SSH.
+
+## 5. Inference host (only when used)
+
+Install `infra/proxmox/inference-host.nft` as `/etc/nftables.conf` with the placeholders filled; `nft -c -f /etc/nftables.conf`, then `systemctl enable --now nftables`. Bind llama.cpp, ComfyUI and voice services to `127.0.0.1`.
+
+## 6. Power, disks and alerts (E-085)
+
+- UPS: install Network UPS Tools on host A; on low battery shut down the VMs (`onboot` brings them back) and the host. Test once by pulling mains power with the UPS attached.
+- Disks: `zpool scrub` monthly (the Proxmox default cron), `smartd` enabled; mail or push notifications configured in Proxmox (Datacenter → Notifications) for backup failures, ZFS and SMART events.
+- A lost phone with VPN access: revoke its WireGuard peer on the router and its Google session; nothing else to change.
+
+## 7. Acceptance and evidence
+
+Run `infra/proxmox/scripts/verify.sh` with the variables it lists:
+
+1. `verify.sh worker` on the Worker VM.
+2. `verify.sh core` on the Core VM, once with host B on and once with `INFERENCE_OFF=1` and host B off (E-062).
+3. `verify.sh internet` from outside the site (a phone hotspot). Optionally an `nmap -Pn` of the public address from the same place.
+4. One restore drill (`docs/runbooks/backup-restore-drill.md`), recorded in `evidence/R0/R0-009/restore-drill.md`.
+
+Paste the outputs into `evidence/R0/R0-009/` with the hostnames and addresses redacted.
+
+## Rollback
+
+`pve-firewall stop`; remove the appended block from `/etc/network/interfaces` and `ifreload -a`; `qm destroy` the VMs; `pvesh delete /cluster/backup/presence-nightly`; `docker compose down` on the Edge VM and delete the tunnel in Cloudflare.
 
 
 ---
@@ -8784,6 +8921,116 @@ Not measured. CI runs on free standard runners (public repository); one run take
 
 ---
 
+# FILE: `evidence/R0/R0-009/report.md`
+
+# Implementation Report — R0-009 Proxmox, Network and Backup Baseline
+
+Written 2026-11-25. Spec: [R0-009](../../../specs/R0/R0-009-infrastructure-baseline.md). Runbook: [infrastructure baseline](../../../docs/runbooks/infrastructure-baseline.md).
+
+- Starting commit: `1f5d8a4` (docs(R0-002): record public repository and branch protection on main), on `feat/R0-002-ci-environments`.
+- Resulting commit: the head of branch `feat/R0-009-infrastructure-baseline`. It contains this report, so it cannot name its own hash.
+- Execution profile: side session started by the operator's main session while the owner was away; no controller yet (R0-011).
+- Harness: Claude Code, desktop app.
+- Model: Claude Opus 5.5 (`claude-opus-5-5`).
+- Reasoning: default for the session.
+- Task/spec hash: sha256 `8627aa86830baefba99e2c359e91672de9a2c480ab9a627b4e30847d7aab8ac8` of `specs/R0/R0-009-infrastructure-baseline.md` (revision 3).
+- Changed files: new `infra/proxmox/` (firewall files, bridges, hosts, `vms.sh`, `inference-host.nft`, `scripts/pg-backup.sh`, `scripts/verify.sh`), `infra/compose/` (edge compose, Caddyfile, env example), `infra/cloudflare/cloudflared.yml`, `infra/tests/test_infra.py`, the three `infra/*/README.md`, `docs/runbooks/infrastructure-baseline.md`, this folder. One line added to the `Makefile` `test` target.
+- Migrations: none.
+- Rollback: revert the branch. Nothing was applied to any host; the runbook has its own rollback section for when the owner applies it.
+
+## Versions (checked against official sources on 2026-11-25)
+Sources: GitHub releases API for the projects, `docker buildx imagetools inspect` for digests, Debian release page.
+
+| Item | Pinned | Note |
+|---|---|---|
+| cloudflared | 2026.11.2, digest `sha256:55c7e3e8…3af6` | newest release (2026-11-23) |
+| Caddy | 2.11.9-alpine, digest `sha256:003a9780…f0` | newest release (2026-11-05) |
+| Debian (VM image) | 13 "trixie" (13.8 current) | image checksum checked by the operator at download (runbook step 3) |
+| Proxmox VE, PBS | not pinned | the installed version is recorded by the owner (assumption: VE 9, PBS 4) |
+
+## Dependencies (review)
+No package dependency added. Two container images are used on the Edge VM only.
+
+| Item | Licence | Maintenance | Why needed / duplication |
+|---|---|---|---|
+| cloudflared (image) | Apache-2.0 | Cloudflare, releases monthly | the tunnel ingress chosen in ADR-0006; nothing else in the repo does this |
+| Caddy (image) | Apache-2.0 | active, release 2026-11-05 | the origin router named in ADR-0006 |
+
+Both run with host networking because Caddy must reach `core.presence.internal` and cloudflared must reach Caddy on 127.0.0.1; neither publishes a port or mounts the Docker socket. Caddy's admin API is off.
+
+## Tests
+- `make check` passes, including 12 new offline tests in `infra/tests/test_infra.py`: default-drop policies on every VM and the cluster, every inbound accept names a source, SSH only from the Proxmox host, private ranges dropped before general egress, the Worker's first outbound rule drops all private ranges, only Core reaches Data and the inference host, every VM NIC has the firewall on, the inference host drops by default and never opens the raw model ports, the edge publishes no ports and pins images by digest, Caddy binds to 127.0.0.1 with the admin API off and a 404 catch-all, the tunnel sends everything to Caddy.
+- Validated with the real tools: `docker compose config -q` (edge compose), `caddy validate` 2.11.9 (Caddyfile), `cloudflared tunnel ingress validate` and `ingress rule` 2026.11.2, `nft -c` in an unprivileged namespace (inference host rules), `bash -n` on all scripts. Not wired into `make`: they need Docker and the images; the offline tests guard the exposure rules.
+- `python3 tools/build_docs.py`: `links: ok`.
+
+## Security checks
+- No real address, hostname or key in the repository: LAN values are documentation ranges (`192.0.2.0/24`, `198.51.100.0/24`) to be replaced on the host; the internal 10.77.x ranges are private. The only real names are the already public `console.iamwaqargulzar.com` and the proposed `edge-test.iamwaqargulzar.com`.
+- Tunnel credentials stay in a root-only file on the Edge VM; `edge.env` is ignored by `.gitignore`.
+- Proxmox (8006, SSH) open only to the management set; PostgreSQL and object storage only to Core; inference raw ports bound to localhost and closed in nftables; no Docker socket mounted; nothing listens on the Edge VM's LAN side.
+- The Worker cannot reach the management LAN, the router, the Proxmox host, the Data VM or the inference host.
+- Nothing was connected to or applied on a real host.
+
+## Acceptance criteria
+| Criterion | Result |
+|---|---|
+| Worker cannot reach management, Proxmox, Data database port, inference raw ports | rules written and tested offline; `verify.sh worker` on hardware: **owner** |
+| Core resolves and reaches the inference hostname | rules and hosts file written; `verify.sh core`: **owner** |
+| From the Internet only the test hostname answers; console gives only the sign-in redirect | edge config validated; Access set-up in `infra/cloudflare/README.md`; `verify.sh internet`: **owner** |
+| One restore drill recorded | template `restore-drill.md`; drill: **owner** |
+| Recovery objectives written and compared with the drill | objectives in `docs/infrastructure/backup-disaster-recovery.md`; comparison after the drill: **owner** |
+| External scan shows nothing else listening | `verify.sh internet` port loop, optional `nmap`: **owner** |
+| All of the above with the inference host off (E-062) | `verify.sh core` with `INFERENCE_OFF=1`: **owner** |
+| Site loss (E-084), outage (E-085) | rebuild path and UPS/clean shutdown in the backup doc and runbook; UPS test: **owner** |
+
+## Still needs the owner on real hardware
+1. Fill the placeholders and apply runbook steps 1–6 on hosts A, B (optional) and C.
+2. Store the PBS encryption key offline.
+3. Create the tunnel, DNS records and the Cloudflare Access application.
+4. Run `verify.sh worker`, `core` (inference on and off) and `internet`; paste redacted output here.
+5. Run one restore drill and fill `restore-drill.md`; compare with the objectives.
+6. Pull mains power once to test the UPS shutdown.
+7. Confirm or correct the assumptions in `docs/ASSUMPTIONS_AND_OPEN_QUESTIONS.md` (R0-009 section), especially the VM sizes and address ranges.
+
+## Reviewer
+No independent review yet. This change defines the network boundary, so the owner should review the firewall files and the topology table before applying them.
+
+## Cost/tokens/cache
+Not measured; the desktop session does not expose usage to the worker. No paid service used.
+
+## Known limitations
+- `shortcut:` nightly dump gives RPO 24 h; WAL archiving is needed before the first client's production data.
+- `shortcut:` internal names come from a hosts file; move to router DNS when more hosts need names.
+- The Worker's egress to the Internet is open; R0-012 narrows it.
+- The inference gateway port (8443) is a placeholder until the gateway is built.
+- No ADR added, to avoid a number clash with sessions running in parallel; the decisions are in the Decision Register under Infrastructure and Backups.
+
+## Docs updated
+`infra/*/README.md`, `docs/infrastructure/topology.md`, `docs/infrastructure/backup-disaster-recovery.md`, `docs/runbooks/backup-restore-drill.md`, new `docs/runbooks/infrastructure-baseline.md`, `docs/DECISION_REGISTER.md`, `docs/ASSUMPTIONS_AND_OPEN_QUESTIONS.md`, `CHANGELOG.md`.
+
+
+---
+
+# FILE: `evidence/R0/R0-009/restore-drill.md`
+
+# Restore drill — R0-009
+
+To be filled in by the operator after the drill (`docs/runbooks/backup-restore-drill.md`). Redact hostnames and addresses.
+
+| Field | Value |
+|---|---|
+| Date | not run yet |
+| Backup set (PBS snapshot and dump file) | |
+| Restored into | (isolated VM IDs / bridge) |
+| Steps that failed | |
+| Elapsed time to a working Data VM | |
+| Data-loss window (backup time to failure time) | |
+| Compared with objectives (RPO 24 h, RTO 4 h) | |
+| Checks run (login, tenant isolation, files) | |
+| Remediation | |
+
+
+---
+
 # FILE: `evidence/README.md`
 
 # Evidence
@@ -8813,7 +9060,20 @@ Example: `evidence/R0/R0-001/report.md`.
 # FILE: `infra/cloudflare/README.md`
 
 # Cloudflare Infrastructure
-R0/R1 will encode Tunnel, wildcard platform DNS, tenant/control domain separation and custom-hostname configuration. Keep static-origin migration path documented.
+
+Cloudflare Tunnel is the default ingress (ADR-0006); the static-IP path is in `docs/runbooks/tunnel-to-static-origin.md`. Platform DNS, tenant domains and custom hostnames come in R1/R3.
+
+`cloudflared.yml` sends every tunnel hostname to Caddy on the Edge VM; Caddy decides what each hostname serves.
+
+## Set up (operator, once)
+
+1. Create a locally managed tunnel on the Edge VM: `cloudflared tunnel login`, `cloudflared tunnel create presence`. Move the credentials JSON to `/etc/presence/cloudflared-credentials.json` (root only, mode 600). It never enters the repository; delete `cert.pem` from the VM afterwards.
+2. DNS: `cloudflared tunnel route dns presence edge-test.iamwaqargulzar.com` and the same for `console.iamwaqargulzar.com`. Only these two hostnames point at the tunnel in R0.
+3. Cloudflare Access (ADR-0033 section 11): a self-hosted application on `console.iamwaqargulzar.com`, Google as the identity provider, a policy allowing only the invited email addresses, session length 24 h. The test hostname stays public.
+4. A rate-limiting rule on the console hostname (Security → WAF), and "Always use HTTPS" on the zone.
+5. If a Cloudflare API token is ever needed for automation, scope it to this zone's DNS and tunnel edit only and keep it out of the repository.
+
+Check from outside the site with `infra/proxmox/scripts/verify.sh internet`.
 
 
 ---
@@ -8821,7 +9081,13 @@ R0/R1 will encode Tunnel, wildcard platform DNS, tenant/control domain separatio
 # FILE: `infra/compose/README.md`
 
 # Compose / Local Runtime
+
 Initial local/self-hosted orchestration should be simple and reproducible. Do not introduce Kubernetes before an accepted ADR.
+
+- `edge.compose.yaml`, `Caddyfile`, `edge.env.example`: the Edge VM (cloudflared and Caddy, ADR-0006). Host networking, no published ports; Caddy listens on `127.0.0.1:8080` and routes by hostname, answering 404 for unknown hosts.
+- Check locally: `docker compose -f infra/compose/edge.compose.yaml --env-file <filled env> config -q` and `caddy validate`.
+- Images are pinned by tag and digest. To update, check the upstream release, then replace both.
+- The repository-root `compose.yaml` is the developer database for tests (R0-002), not production.
 
 
 ---
@@ -8829,7 +9095,20 @@ Initial local/self-hosted orchestration should be simple and reproducible. Do no
 # FILE: `infra/proxmox/README.md`
 
 # Proxmox Infrastructure
-R0 will add reproducible configuration/runbooks for the four-VM topology and backup integration. Do not expose Proxmox management publicly.
+
+Configuration for host A (Proxmox VE), the optional inference host B and the backups to host C (R0-009). Applied by the operator with `docs/runbooks/infrastructure-baseline.md`; layout and allowed flows in `docs/infrastructure/topology.md`. Proxmox management is never exposed publicly.
+
+| File | Goes to |
+|---|---|
+| `interfaces.presence` | appended to `/etc/network/interfaces` on host A |
+| `firewall/*.fw` | `/etc/pve/firewall/` on host A |
+| `vms.sh` | run once as root on host A |
+| `presence.internal.hosts` | appended to `/etc/hosts` on each VM |
+| `inference-host.nft` | `/etc/nftables.conf` on host B |
+| `scripts/pg-backup.sh` | `/usr/local/sbin/` on the Data VM, cron 01:30 |
+| `scripts/verify.sh` | acceptance checks, run per role |
+
+Addresses in `192.0.2.0/24` and `198.51.100.0/24` are documentation placeholders; real values are filled in on the host and never committed. `make test` runs the offline checks in `infra/tests/`.
 
 
 ---

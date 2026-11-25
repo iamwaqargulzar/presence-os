@@ -4,6 +4,8 @@
 
 Set an initial cadence in R0 and tighten as production importance grows.
 
+R0 cadence (R0-009): one full drill before R0 closes, then one each quarter and after any change to the backup setup. Record each drill from `evidence/R0/R0-009/restore-drill.md` and compare it with the objectives in `docs/infrastructure/backup-disaster-recovery.md`. Monthly from the first client's production data.
+
 ## Drill
 
 1. Select backup set and target recovery point.

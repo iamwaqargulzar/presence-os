@@ -1,0 +1,15 @@
+# Data VM (PostgreSQL + pgvector, S3-compatible object storage). Install as /etc/pve/firewall/130.fw.
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: DROP
+
+[RULES]
+IN SSH(ACCEPT) -source 10.77.10.1
+IN ACCEPT -source 10.77.10.20 -p tcp -dport 5432
+IN ACCEPT -source 10.77.10.20 -p tcp -dport 3900
+OUT DROP -dest +private
+OUT DNS(ACCEPT)
+OUT NTP(ACCEPT)
+OUT ACCEPT -p tcp -dport 80
+OUT ACCEPT -p tcp -dport 443

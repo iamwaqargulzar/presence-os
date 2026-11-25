@@ -38,6 +38,17 @@ Still open:
 - the cloud storage target for the offsite backup copy (needed before the first client's production data);
 - left to the named task and recorded in its report: permission catalogue content, action-class and risk table, structure of `scope` and `constraints`, initial limit keys, governor per-class limits and weights, custom-domain and model-revision state names.
 
+## R0-009 assumptions (unverified until applied on the real hardware)
+
+- Host A runs Proxmox VE 9 on Debian 13 with ZFS storage `local-zfs`; host C runs Proxmox Backup Server 4. Versions are checked by the owner at install time.
+- Host A has at least 18 vCPU-worth of threads to share and 34 GB of RAM free for the proposed VM sizes; if not, shrink the Worker first.
+- The 10.77.10.0/24 and 10.77.20.0/24 ranges do not clash with the LAN or the WireGuard range.
+- The router hands out a fixed LAN address to host A and host B, and its WireGuard range is known (it goes in the `management` ipset).
+- The inference host's gateway listens on 8443 (R1-012 builds the gateway; the port is a placeholder until then).
+- The tunnel test hostname is `edge-test.iamwaqargulzar.com`; any hostname under the control-plane domain will do.
+- A UPS with a USB or network signal is attached to host A (model not known; Network UPS Tools is the proposed client).
+- Still open: who runs the external port scan (proposed: the operator from a phone hotspot with `verify.sh internet`).
+
 ## R2/R3 decisions
 
 The R2 and R3 task contracts were written on 2026-11-15 (`specs/R2/`, `specs/R3/`). Each lists its own open decisions with a proposed default. Nothing below is decided. The technical ones can be settled together in one ADR ("technical defaults for R2 and R3"), as ADR-0033 did for R0 and R1.
