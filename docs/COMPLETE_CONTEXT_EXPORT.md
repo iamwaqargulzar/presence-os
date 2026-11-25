@@ -674,7 +674,6 @@ None. Resolved and built on 2026-11-25: versions and package managers (ADR-0032,
 Decided in ADR-0033 (technical defaults), including the in-house model gateway, primary development worker, sign-in library, Cloudflare Access, Temporal, OpenBao, observability, object storage, sandbox limits, session boundary, data classes, hostname format and the contract gaps.
 
 Still open:
-- branch protection: GitHub offers it for private repositories only on a paid plan (GitHub Pro). Options: upgrade, make the repository public, or rely on the CI protected-path stage and the owner's merge discipline (current state, 2026-11-25; ADR-0035);
 - the licence-check gate has no owning R0 task (proposed: a small follow-up task after R0-002);
 - the registrable domain for hosted client sites and previews (must not be `iamwaqargulzar.com`; needed before anything tenant-generated is put online);
 - the cloud storage target for the offsite backup copy (needed before the first client's production data);
@@ -968,7 +967,7 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Pinned on 2026-11-25 (R0-001): Python 3.15.2, Node 26.13.1 LTS, Django 6.1.3, Next.js 16.4.6, TypeScript 7.0.2, uv 0.13.10, pnpm 12.23.0. Exact pins live in `.python-version`, `pyproject.toml`, `uv.lock`, `apps/web/package.json` and `apps/web/pnpm-lock.yaml`.
 - Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
 - Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
-- CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. Branch protection is not available on the free plan for a private repository (owner decision pending).
+- CI (R0-002, ADR-0035): one GitHub Actions job runs `tools/ci_run.py`; result in `reports/ci-result.json`, kept 30 days; per-run generated test credentials, no repository secrets; protected-path changes need the owner's label `owner-approved-protected-change`. The repository is public (owner, 2026-11-25); `main` requires a pull request and a green `gates` check, also for administrators.
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.
@@ -2205,7 +2204,7 @@ R0-002 needs ordered CI stages, a machine-readable result, test databases, prote
 2. **No secrets in CI.** The workflow uses no repository secrets, has a read-only token, uses `pull_request` (never `pull_request_target`) and pins every action by commit. Test credentials are generated per run and masked. A test checks these rules.
 3. **Test database.** PostgreSQL 18.7 from the same `compose.yaml` as local development (ADR-0033). The Django test runner creates `test_<name>`, migrates it from empty and drops it. Until R0-003 one role owns and uses the tables.
 4. **Protected paths.** `.github/protected-paths` lists CI, gate, spec and agent-rule files. A pull request changing any of them fails the `protected-paths` stage until the owner adds the label `owner-approved-protected-change`. Workers must never add it.
-5. **Branch protection.** Not available on the current plan. Until the owner decides (upgrade, public repository, or stay), the rule is: merge only when the CI check on the pull request is green.
+5. **Branch protection.** On 2026-11-25 the owner made the repository public, which enables it. `main` requires a pull request and a green `gates` check, also for administrators; force pushes and deletion are off. No approving review is required, because the owner is the only reviewer and GitHub does not let an author approve their own pull request. Pull requests from forks run CI without secrets, and GitHub holds a first-time contributor's run until the owner approves it.
 6. **psycopg 3.3.9** (with `psycopg-binary`) is added. Licence LGPL-3.0-only. Review note required by ADR-0033 section 3: it is used unmodified as a separately distributed library through its public API; Presence OS is not distributed to third parties (ADR-0030); it is the PostgreSQL driver Django recommends; no permissive alternative is maintained to the same level. Accepted.
 7. **`django.contrib.contenttypes`** is installed now: it is a framework app every later identity and permissions task needs, and it gives CI real migrations to run from empty.
 
@@ -2222,7 +2221,7 @@ R0-002 needs ordered CI stages, a machine-readable result, test databases, prote
 CI cannot leak a repository secret because it has none. Pull requests from forks run with a read-only token. Logs are redacted of credential-like environment values before they are stored.
 
 ## Cost/operational impact
-GitHub Actions minutes for a private repository on the free plan are limited per month; one run takes a few minutes. Artifacts are kept 30 days.
+The repository and its CI logs are public, so nothing confidential may go into them (the secret scan and log redaction already guard this). Standard GitHub-hosted runners are free for public repositories. Artifacts are kept 30 days.
 
 ## Migration / rollback
 Revert the commit. The local PostgreSQL volume can be removed with `docker compose down -v`.
@@ -5119,21 +5118,22 @@ Check that `STATUS.md` matches the repository (`git log -5`, `git status`). If i
 Last updated: 2026-11-25. Overwrite this file at every handoff; keep it short. Protocol: [README.md](README.md).
 
 ## Phase
-R0 Engineering Foundation. R0-001 is built and its gates pass; it waits for the owner's review and merge.
+R0 Engineering Foundation. R0-001 built (PR #1, waiting for review). R0-002 built (PR #2, stacked on #1); CI evidence and implementation report still to record.
 
 ## Repository
-- Private GitHub repository `iamwaqargulzar/presence-os`, created by the owner on 2026-11-25. `main` holds the baseline commit `5eecb64`.
-- R0-001 work is on branch `feat/R0-001-repository-toolchain`. Check `git log` and `gh pr list` for whether it is pushed, has a pull request, or is merged.
-- Branch protection on `main` is not set yet (CONTRIBUTING.md says it should be once the repository exists).
+- Private GitHub repository `iamwaqargulzar/presence-os`. `main` holds only the baseline commit `5eecb64`.
+- PR #1 `feat/R0-001-repository-toolchain` → `main`. PR #2 `feat/R0-002-ci-environments` → PR #1's branch; retarget to `main` after #1 merges.
+- The repository is public (owner decision, 2026-11-25). `main` requires a pull request and a green `gates` check, also for administrators (ADR-0035).
 
 ## Current task
-R0-001 [repository and toolchain](../../specs/R0/R0-001-repository-toolchain.md): done on the branch, report in [evidence/R0/R0-001/report.md](../../evidence/R0/R0-001/report.md). The next task is R0-002 (CI), then R0-003 (PostgreSQL row-level security). Order: [specs/R0/README.md](../../specs/R0/README.md).
+R0-002 [CI and environments](../../specs/R0/R0-002-ci-environments.md). Code, workflow and docs are pushed. Not finished:
+1. Record the first CI run of PR #2: the `protected-paths` stage is expected to fail until the owner adds the label `owner-approved-protected-change`; after the label, the run should be green.
+2. Write `evidence/R0/R0-002/report.md` with both run links, the `ci-result.json` stage table and the self-test output, then a handoff log entry.
 
 The development controller (R0-011) and sandbox (R0-012) do not exist yet. Until they do, R0 tasks are built directly in a session that the operator starts and watches.
 
 ## Next step
-1. If R0-001 is not merged: push the branch, open the pull request, owner reviews and merges.
-2. Start a new session. Read this file, then [R0-002](../../specs/R0/R0-002-ci-environments.md), then build it. CI calls the `make` targets listed in [gates.md](../delivery/gates.md).
+Read the CI result of PR #2 (`gh pr checks 2`, artifact `ci-reports`), then finish item 2 above. After that: R0-003 (PostgreSQL row-level security).
 
 ## How to work on the code
 Machine setup and gate commands: [developer bootstrap](../runbooks/developer-bootstrap.md). Run `make check` before every commit; the pre-commit hook runs the secret scan and needs Docker.
@@ -5147,7 +5147,7 @@ None for R0.
 - 24 questions for R2 and R3, listed in [ASSUMPTIONS_AND_OPEN_QUESTIONS.md](../ASSUMPTIONS_AND_OPEN_QUESTIONS.md) under "For the owner". None blocks R0 or R1.
 
 ## Known gaps
-- The licence-check gate in [gates.md](../delivery/gates.md) has no owning R0 task. Proposal: add it to R0-002.
+- The licence-check gate in [gates.md](../delivery/gates.md) has no owning R0 task. Proposal: a small follow-up task.
 - `uv audit` is experimental in uv 0.13.10.
 - Versions for later tools (Temporal, Redis, PostgreSQL 18 minor, Caddy, cloudflared) are still unchecked; each first-use task verifies them.
 - R2 and R3 contracts are revision 1 with no second review; recheck before each release starts.

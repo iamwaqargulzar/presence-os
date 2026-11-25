@@ -9,7 +9,7 @@ R0-002 needs ordered CI stages, a machine-readable result, test databases, prote
 2. **No secrets in CI.** The workflow uses no repository secrets, has a read-only token, uses `pull_request` (never `pull_request_target`) and pins every action by commit. Test credentials are generated per run and masked. A test checks these rules.
 3. **Test database.** PostgreSQL 18.7 from the same `compose.yaml` as local development (ADR-0033). The Django test runner creates `test_<name>`, migrates it from empty and drops it. Until R0-003 one role owns and uses the tables.
 4. **Protected paths.** `.github/protected-paths` lists CI, gate, spec and agent-rule files. A pull request changing any of them fails the `protected-paths` stage until the owner adds the label `owner-approved-protected-change`. Workers must never add it.
-5. **Branch protection.** Not available on the current plan. Until the owner decides (upgrade, public repository, or stay), the rule is: merge only when the CI check on the pull request is green.
+5. **Branch protection.** On 2026-11-25 the owner made the repository public, which enables it. `main` requires a pull request and a green `gates` check, also for administrators; force pushes and deletion are off. No approving review is required, because the owner is the only reviewer and GitHub does not let an author approve their own pull request. Pull requests from forks run CI without secrets, and GitHub holds a first-time contributor's run until the owner approves it.
 6. **psycopg 3.3.9** (with `psycopg-binary`) is added. Licence LGPL-3.0-only. Review note required by ADR-0033 section 3: it is used unmodified as a separately distributed library through its public API; Presence OS is not distributed to third parties (ADR-0030); it is the PostgreSQL driver Django recommends; no permissive alternative is maintained to the same level. Accepted.
 7. **`django.contrib.contenttypes`** is installed now: it is a framework app every later identity and permissions task needs, and it gives CI real migrations to run from empty.
 
@@ -26,7 +26,7 @@ R0-002 needs ordered CI stages, a machine-readable result, test databases, prote
 CI cannot leak a repository secret because it has none. Pull requests from forks run with a read-only token. Logs are redacted of credential-like environment values before they are stored.
 
 ## Cost/operational impact
-GitHub Actions minutes for a private repository on the free plan are limited per month; one run takes a few minutes. Artifacts are kept 30 days.
+The repository and its CI logs are public, so nothing confidential may go into them (the secret scan and log redaction already guard this). Standard GitHub-hosted runners are free for public repositories. Artifacts are kept 30 days.
 
 ## Migration / rollback
 Revert the commit. The local PostgreSQL volume can be removed with `docker compose down -v`.
