@@ -5138,22 +5138,25 @@ Check that `STATUS.md` matches the repository (`git log -5`, `git status`). If i
 Last updated: 2026-11-25. Overwrite this file at every handoff; keep it short. Protocol: [README.md](README.md).
 
 ## Phase
-R0 Engineering Foundation. R0-001 built (PR #1, waiting for review). R0-002 built (PR #2, stacked on #1); CI evidence and implementation report still to record.
+R0 Engineering Foundation. R0-001 built (PR #1, waiting for review). R0-002 built (PR #2, stacked on #1), waiting for the owner's label. R0-003, R0-005 and R0-009 under way in parallel sessions (draft PRs against the R0-002 branch).
 
 ## Repository
-- Private GitHub repository `iamwaqargulzar/presence-os`. `main` holds only the baseline commit `5eecb64`.
+- Public GitHub repository `iamwaqargulzar/presence-os`. `main` holds only the baseline commit `5eecb64`.
 - PR #1 `feat/R0-001-repository-toolchain` → `main`. PR #2 `feat/R0-002-ci-environments` → PR #1's branch; retarget to `main` after #1 merges.
 - The repository is public (owner decision, 2026-11-25). `main` requires a pull request and a green `gates` check, also for administrators (ADR-0035).
 
 ## Current task
-R0-002 [CI and environments](../../specs/R0/R0-002-ci-environments.md). Code, workflow and docs are pushed. Not finished:
-1. Record the first CI run of PR #2: the `protected-paths` stage is expected to fail until the owner adds the label `owner-approved-protected-change`; after the label, the run should be green.
-2. Write `evidence/R0/R0-002/report.md` with both run links, the `ci-result.json` stage table and the self-test output, then a handoff log entry.
+R0-002 [CI and environments](../../specs/R0/R0-002-ci-environments.md) is done except for one step. Its first CI run failed only at `protected-paths`, as designed. The owner reviews PR #2 and adds `owner-approved-protected-change`; the green run's link then goes into [the report](../../evidence/R0/R0-002/report.md).
+
+In parallel, each in its own worktree and draft PR against `feat/R0-002-ci-environments`:
+- R0-003 (RLS);
+- R0-005 (Temporal; tenant context is behind an interface until R0-003 lands);
+- R0-009 (infrastructure as code and runbooks only).
 
 The development controller (R0-011) and sandbox (R0-012) do not exist yet. Until they do, R0 tasks are built directly in a session that the operator starts and watches.
 
 ## Next step
-Read the CI result of PR #2 (`gh pr checks 2`, artifact `ci-reports`), then finish item 2 above. After that: R0-003 (PostgreSQL row-level security).
+PR #1 can't merge under branch protection, because it has no `gates` check. Retarget PR #2 to `main`, merge it after the label (it contains R0-001), and close PR #1. Then rebase the three draft PRs onto `main`, review each one's diff and CI, and merge them in order: R0-003, R0-005, R0-009. Next tasks after them: R0-006, then R0-004.
 
 ## How to work on the code
 Machine setup and gate commands: [developer bootstrap](../runbooks/developer-bootstrap.md). Run `make check` before every commit; the pre-commit hook runs the secret scan and needs Docker.
@@ -5173,7 +5176,7 @@ None for R0.
 - R2 and R3 contracts are revision 1 with no second review; recheck before each release starts.
 
 ## Latest handoff
-[log/2026-11-25-r0-001-repository-toolchain.md](log/2026-11-25-r0-001-repository-toolchain.md)
+[log/2026-11-25-r0-002-ci-environments.md](log/2026-11-25-r0-002-ci-environments.md)
 
 
 ---
@@ -5212,6 +5215,52 @@ Push the branch, open the pull request, and merge after review. Then start R0-00
 ## Owner decisions waiting
 - Whether the licence-check gate goes into R0-002 (proposed).
 - Others: see [STATUS.md](../STATUS.md).
+
+
+---
+
+# FILE: `docs/handoff/log/2026-11-25-r0-002-ci-environments.md`
+
+# Session Handoff — 2026-11-25 — R0-002 CI and environments
+
+- Date: 2026-11-25
+- Phase / release: R0
+- Task contract(s): [`specs/R0/R0-002-ci-environments.md`](../../../specs/R0/R0-002-ci-environments.md)
+- Starting commit: `5286133` (head of `feat/R0-001-repository-toolchain`)
+- Ending commit: head of branch `feat/R0-002-ci-environments`
+- Worker / model: Claude Code (desktop app), Claude Opus 5.5
+
+## Done
+- R0-001 pushed as PR #1. R0-002 built and pushed as PR #2, stacked on #1:
+  - CI workflow and `tools/ci_run.py` with the result contract;
+  - PostgreSQL 18.7 through compose;
+  - protected paths;
+  - a stronger gate self-test.
+
+  Report: [evidence/R0/R0-002/report.md](../../../evidence/R0/R0-002/report.md).
+- The first CI run failed as designed: every gate passed, and only `protected-paths` failed, waiting for the owner's label.
+- On the owner's instruction, the repository was made public after a full-history secret scan found nothing. `main` is protected: pull request plus green `gates` check, also for administrators.
+- Three parallel sessions started, each in its own worktree cut from R0-002's tip. Each opens a draft PR against `feat/R0-002-ci-environments`:
+  - R0-003 (RLS);
+  - R0-005 (Temporal);
+  - R0-009 (infrastructure, repository-only, nothing applied to hardware).
+
+## Decided
+- CI design, protected paths, psycopg, public repository and branch protection → [ADR-0035](../../adrs/ADR-0035-ci-pipeline-and-protected-paths.md) and the Decision Register.
+
+## Not finished
+- The green CI run after the owner adds `owner-approved-protected-change` to PR #2. Add its link to the R0-002 report.
+- PR #1 has no `gates` check, because the workflow arrives in PR #2, so branch protection blocks it. Proposal: retarget PR #2 to `main`, merge it (it contains R0-001), and close PR #1.
+
+## Not checked
+- No independent review of R0-002.
+- The parallel sessions' results: check each draft PR's diff and CI before trusting its report.
+
+## Next step
+Owner: review PR #2 and add the label. Then merge as proposed above, and rebase the three draft PRs onto `main`.
+
+## Owner decisions waiting
+See [STATUS.md](../STATUS.md).
 
 
 ---
@@ -8764,6 +8813,110 @@ Not measured; the desktop session does not expose usage to the worker. No paid s
 
 ## Docs updated
 `README.md`, `00_START_HERE.md`, `CHANGELOG.md`, `apps/*/README.md`, `packages/README.md`, `docs/DECISION_REGISTER.md`, `docs/ASSUMPTIONS_AND_OPEN_QUESTIONS.md`, `docs/delivery/gates.md`, `docs/runbooks/developer-bootstrap.md`, ADR-0034, handoff files.
+
+
+---
+
+# FILE: `evidence/R0/R0-002/report.md`
+
+# Implementation Report — R0-002 CI and Environments
+
+Written 2026-11-25. Spec: [R0-002](../../../specs/R0/R0-002-ci-environments.md). Decisions: [ADR-0035](../../../docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md).
+
+- Starting commit: `5286133` (docs(R0-001): add implementation report and handoff), the head of `feat/R0-001-repository-toolchain`.
+- Resulting commit: the head of branch `feat/R0-002-ci-environments`. It contains this report, so it cannot name its own hash.
+- Execution profile: an interactive session that the operator started and watched; no controller exists yet (R0-011).
+- Harness: Claude Code, desktop app.
+- Model: Claude Opus 5.5 (`claude-opus-5-5`).
+- Reasoning: the session default.
+- Task/spec hash: sha256 `99f3f5f63d92a0394fdd1d973fa4f5ff423a3effbb2c0fae0e52ce96acfd91f6` of `specs/R0/R0-002-ci-environments.md`.
+- Changed files: see `git diff --stat 5286133..feat/R0-002-ci-environments`.
+  - New: `.github/workflows/ci.yml`, `.github/protected-paths`, `compose.yaml`, `tools/ci_run.py`, `tools/tests/`, `contracts/schemas/ci-result.schema.json`, `apps/core/presence_core/migrations/`, `docs/delivery/worktree-workflow.md`, ADR-0035.
+  - Changed: `Makefile`, `settings.py`, `tests.py`, `.env.example`, `.gitignore`, `pyproject.toml`, `uv.lock`, `tools/gate_selftest.sh`.
+- Migrations: only Django's `contenttypes`. CI migrates every test database from empty.
+- Rollback: revert the branch, then remove the local volume with `make services-down` followed by `docker volume rm` of `pgdata`. No deployed state.
+
+## Versions (checked against official sources on 2026-11-25)
+| Item | Pinned |
+|---|---|
+| PostgreSQL | 18.7, image `postgres:18.7-trixie@sha256:c6993038…1f0b6b` |
+| psycopg[binary] | 3.3.9 |
+| actions/checkout | v7.0.1 `3d3c42e5…b1` |
+| actions/upload-artifact | v7.0.2 `cf430e03…d9` |
+| Runner | `ubuntu-24.04` |
+
+## Dependencies (review)
+| Dependency | Licence | Maintenance | Why needed / duplication |
+|---|---|---|---|
+| psycopg[binary] | LGPL-3.0, used unmodified as a library (allowed; ADR-0035) | release 2026-10; the PostgreSQL adapter Django recommends | Django's PostgreSQL driver. No other driver is in the repository. |
+| GitHub Actions above | MIT | official `actions/` organisation | Checkout and report upload. Pinned by commit SHA; a test enforces the pins. |
+
+`uv audit` and `pnpm audit --audit-level high` report no known vulnerabilities.
+
+## CI evidence
+- **Run 1, red as designed:** <https://github.com/iamwaqargulzar/presence-os/actions/runs/45589488926>, merge commit `ebbc845`. Every gate passed. `protected-paths` failed because the PR changes `tools/ci_run.py`, `tools/gate_selftest.sh` and `tools/tests/*`, and the owner's label was not present. This is the expected behaviour.
+
+  | Stage | Status | Exit | Seconds |
+  |---|---|---|---|
+  | static | passed | 0 | 3.2 |
+  | unit | passed | 0 | 8.9 |
+  | integration | passed | 0 | 19.4 |
+  | security | passed | 0 | 5.8 |
+  | protected-paths | **failed** | 1 | 0.0 |
+  | gate-selftest | passed | 0 | 5.0 |
+
+- **Run 2, green after the owner's label:** pending. The owner adds `owner-approved-protected-change` after review, and the run link is added here afterwards.
+
+## Tests
+- Gate self-test, in CI run 1 and locally. Each gate rejects a seeded violation:
+  - format, lint and type errors (Python and TypeScript);
+  - a failing unit test;
+  - an invalid schema;
+  - a broken migration (`test-integration`);
+  - a known-vulnerable dependency (`django==4.2.0`, checked by `uv audit`);
+  - a generated credential (pre-commit secret scan).
+- `tools/tests/test_ci.py` covers:
+  - redaction of credential-like environment values;
+  - protected-path matching;
+  - `ci-result.json` against its schema;
+  - workflow policy: no `secrets.`, no `pull_request_target`, read-only permissions, and every `uses:` pinned by a 40-character SHA.
+- Integration test: the test database name starts with `test_`, and migrations are applied.
+- A full local `python3 tools/ci_run.py` passed every stage. No generated password appears in `reports/`.
+
+## Security checks
+- CI runs unreviewed pull-request code, so it has no repository secrets and read-only permissions, and never uses `pull_request_target`. Credentials are generated per run with `openssl rand`, masked, and redacted from stored logs.
+- PostgreSQL binds to 127.0.0.1 only. Its password is required from the environment and has no default.
+- Protected paths (`.github/protected-paths`) fail CI until the owner adds the label. A worker must never add it. That rule can't be enforced technically while the worker uses the owner's GitHub login; R0-012 removes that login.
+- The repository is public (owner decision, 2026-11-25). `main` requires a pull request and a green `gates` check, also for administrators. Force pushes and deletion are off.
+
+## Acceptance criteria
+| Criterion | Result |
+|---|---|
+| Separate test database | yes, `test_*` per run; asserted by a test |
+| Migrations executed in CI | yes, from empty, plus `makemigrations --check` |
+| Unit, integration and security stages | yes |
+| Secret scan | yes, gitleaks over the full history, plus the pre-commit hook |
+| Dependency scan | yes, `uv audit`, `pnpm audit` |
+| Report retention | yes, `ci-reports` artifact, 30 days |
+| Branch protection documented | yes, ADR-0035; applied on `main` |
+| Worktree workflow documented | yes, `docs/delivery/worktree-workflow.md`, linked from `AGENTS.md` |
+| CI failure cannot be hidden by an agent | protected paths plus a required check. Limit: the worker still holds the owner's login until R0-012. |
+| Green from a clean clone without production credentials | every gate is green in CI run 1. The full green run waits for the owner's label. |
+| Environment rules written and checked | `docs/infrastructure/environments.md`; the localhost bind and the `test_` prefix are checked |
+
+## Reviewer
+No independent review. The owner reviews the protected files before adding the label.
+
+## Cost/tokens/cache
+Not measured. CI runs on free standard runners (public repository); one run takes about 2 minutes.
+
+## Known limitations
+- `uv audit` is experimental.
+- The licence-check gate has no owning task.
+- One database role owns and uses the tables; R0-003 splits it.
+
+## Docs updated
+`docs/infrastructure/environments.md`, `docs/delivery/testing-strategy.md`, `docs/delivery/worktree-workflow.md`, `docs/delivery/gates.md`, `AGENTS.md`, ADR-0035, `docs/DECISION_REGISTER.md`, `docs/ASSUMPTIONS_AND_OPEN_QUESTIONS.md`, `CHANGELOG.md`, `apps/core/README.md`, `docs/runbooks/developer-bootstrap.md`, handoff files.
 
 
 ---
