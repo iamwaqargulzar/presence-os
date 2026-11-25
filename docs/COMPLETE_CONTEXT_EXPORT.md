@@ -324,6 +324,12 @@ A future need is not sufficient reason to deploy Kubernetes, Kafka, Neo4j, a sep
 
 # Changelog
 
+## 2026-11-25 — R0-006 audit and observability
+
+- Append-only audit schema (`audit.tenant_event` under RLS, `audit.platform_event` insert-only) and typed append interface `presence_core.audit.append_audit(AuditEvent)`. ADR-0038.
+- Redaction of secrets and personal data in every log line and audit row, with a `redactions` count; correlation IDs via `observability.correlate()`; W3C `traceparent` continued from the web proxy to the core.
+- Event catalogue and emit guide in `docs/security/audit-ledger.md`; `PRESENCE_SMOKE_PORT` overrides the web smoke-test port.
+
 ## 2026-11-25 — R0-003 PostgreSQL tenancy and RLS
 
 - Roles `presence_migrator` and `presence_app` (`infra/postgres/roles.sh`, run by `make services-up`); new `.env` values `PRESENCE_DB_MIGRATOR_PASSWORD`, `PRESENCE_DB_APP_PASSWORD`.
@@ -856,6 +862,7 @@ Solve the highest-value work for the operator's companies and clients first whil
 - PostgreSQL shared DB + tenant_id + RLS.
 - runtime DB role does not own tables / BYPASSRLS.
 - Roles `presence_migrator` (owns schema, runs migrations) and `presence_app` (runtime); transaction-scoped `presence.tenant_id`; FORCE RLS on every tenant table; composite `(tenant_id, id)` foreign keys (R0-003, ADR-0036).
+- Audit schema `audit`: `tenant_event` (FORCE RLS, runtime INSERT/SELECT) and `platform_event` (runtime INSERT only); no UPDATE/DELETE for the runtime role; one append path `append_audit()`; redaction on every log line and audit row; in-house W3C `traceparent` correlation (R0-006, ADR-0038).
 - external observations become Candidate Facts before canonical truth.
 - FACT/PREFERENCE/DECISION/CONVERSATION_SUMMARY/TASK_STATE are distinct.
 - score formulas versioned.
@@ -2279,6 +2286,51 @@ Two extra statements per transaction. `make services-up` reapplies roles and pas
 ## Supersedes
 
 ## Superseded by
+
+
+---
+
+# FILE: `docs/adrs/ADR-0038-audit-and-trace-correlation.md`
+
+# ADR-0038 — Audit Schema, Redaction and Trace Correlation
+Status: Accepted (2026-11-25). Made during R0-006 under the owner's delegation in ADR-0032 and ADR-0033. Independent review of the audit grants is pending.
+
+## Context
+R0-006 needs an append-only, tenant-scoped audit log, redaction of secrets and personal data in logs and audit payloads, and correlation IDs across the web and core apps. ADR-0033 picks the OpenTelemetry Collector, Prometheus, Loki, Tempo and Grafana, but none is deployed yet, and the worker has no code. ADR-0033 also says audit is readable only by the operator role, while the R0-006 spec lets the runtime role insert and select. By the authority order in `AGENTS.md`, the task contract wins; this ADR records how the two are reconciled.
+
+## Decision
+1. **Schema `audit`, two tables.** `audit.tenant_event` holds events about one tenant, with FORCE RLS like every tenant table (ADR-0036); `presence_app` may INSERT and SELECT under RLS. `audit.platform_event` holds events with no tenant; `presence_app` may INSERT only. Neither grants UPDATE, DELETE or TRUNCATE. Tests prove each is rejected.
+2. **Readers.** A tenant's own events are readable in its tenant context (spec). Platform events are readable only by the owner role until an operator audit-reader role exists (ADR-0033).
+3. **One append path.** `presence_core.audit.append_audit(AuditEvent)` writes in the caller's transaction and refuses to run outside one. A failed write logs `audit_write_failed` and raises, so the operation rolls back rather than proceeding unaudited. The tenant is always named explicitly, never taken from context.
+4. **Redaction in one place.** `observability.redact()` runs on every JSON log line and every audit row: sensitive keys and credential or email patterns become `[REDACTED]`; log lines count hits in `redactions`.
+5. **In-house W3C Trace Context.** Both apps read a valid `traceparent`, otherwise start a trace, and return one; the web proxy forwards it to the core. No OpenTelemetry SDK or Collector until a backend runs, so no new dependency.
+6. **Correlation context.** `observability.correlate()` holds request, trace, tenant, profile, workflow, task and action IDs for the current request or job; `tenant_context()` adds the tenant.
+
+## Alternatives considered
+- One audit table with nullable `tenant_id`: an RLS policy would need a special case for platform rows, and the runtime role could read them. Rejected.
+- Database triggers to block UPDATE/DELETE: grants already do it, and the owner can bypass triggers anyway. Rejected.
+- OpenTelemetry SDK now: two dependencies and exporter configuration with nowhere to export to. Deferred.
+- Django ORM model for audit: the ORM invites `update()` and `delete()` calls that would only fail at run time. Raw insert instead.
+
+## Consequences
+- Login, profile and workflow events are named in the catalogue (`docs/security/audit-ledger.md`) but wired by R0-004 and R0-005.
+- Any key containing `token` is redacted, including harmless ones such as `tokens_used`; such fields must be renamed.
+- Spans are not exported; a trace ID joins logs only.
+
+## Security impact
+Audit rows cannot be changed or removed by the runtime role. Tenant audit isolation is enforced by the database, not by application filters. Platform events, which may concern unknown users, are not readable by the runtime role. Redaction is a safety net; callers must still not log secrets.
+
+## Cost
+None. No new service or dependency.
+
+## Migration/rollback
+Migration `presence_core/0002_audit` creates the schema; its reverse drops it with all audit rows. Rolling back in production would lose audit history, so it is for development only.
+
+## Supersedes
+None. Refines ADR-0033 on audit readers.
+
+## Superseded by
+None.
 
 
 ---
@@ -5526,37 +5578,57 @@ Deny arbitrary LAN/Internet clients and block inference server access to managem
 
 # Observability
 
-Use OpenTelemetry as the instrumentation baseline.
+Use OpenTelemetry conventions as the instrumentation baseline. Logs must not contain secrets, raw authorization tokens, passwords or unnecessary personal data. Avoid observability sprawl: add a storage backend only when something needs it.
 
-Correlate:
-- request_id
-- trace_id
-- tenant_id/profile_id
-- workflow_id
-- task_id
-- action_id
-- skill/version
-- connector/provider
-- model/harness/reasoning profile where applicable.
+## Backends
+Decided in ADR-0033: an OpenTelemetry Collector feeding Prometheus (metrics), Loki (logs) and Tempo (traces), viewed in Grafana, internal only. None is deployed yet (R0-006, [ADR-0038](../adrs/ADR-0038-audit-and-trace-correlation.md)). Until then:
+- logs are one JSON object per line on standard output;
+- traces use W3C Trace Context headers (`traceparent`), the OpenTelemetry default propagator, implemented in-house with no SDK;
+- no metrics are exported.
 
-Metrics:
-- API latency/error;
-- workflow queue/backlog;
-- action state/failure;
-- connection health;
-- tenant concurrency;
-- GPU utilization/queue;
-- browser queue;
-- provider rate limits;
-- cache hit;
-- token/media cost;
-- RLS/auth failures;
-- domain/certificate state;
-- backup/restore health.
+Adding the OpenTelemetry SDK and Collector is a follow-up once the first backend runs. Sampling is then set at the Collector (start: 10% of traces, 100% of error traces).
 
-Logs must not contain secrets, raw authorization tokens, passwords or unnecessary PII.
+## Correlation
+| ID | Set by |
+|---|---|
+| `request_id` | `X-Request-ID` header if it is a short plain token, otherwise new (web proxy and core middleware) |
+| `trace_id` | incoming valid `traceparent`, otherwise new; the web proxy forwards it to the core |
+| `tenant_id` | `tenant_context()` |
+| `profile_id`, `workflow_id`, `task_id`, `action_id` | `presence_core.observability.correlate(...)` in the code that knows them |
 
-Prometheus/Grafana/Loki are acceptable initial choices when needed; avoid observability sprawl.
+Also to correlate later: skill/version, connector/provider, model/harness/reasoning profile.
+
+`correlate()` keeps the IDs for the current request or job. Every JSON log line and every audit event in the block carries them. Both apps return `X-Request-ID` and `traceparent` response headers. The worker hop arrives with the worker (`apps/worker` has no code yet).
+
+## Redaction
+`presence_core.observability.redact()` runs on every log line (message, fields and exception text) and every audit payload. It replaces with `[REDACTED]`:
+- values under keys that name a password, secret, token, authorization, cookie, API key, credential, private key, session or OTP;
+- bearer and basic credentials, JWTs, provider API keys (`sk-…`), GitHub, Slack and AWS key formats, private-key blocks, `key=value` credentials, cookie headers and email addresses, anywhere in text.
+
+Known over-redaction: any key containing `token` (for example `tokens_used`) is redacted; rename such fields (`token_count`) rather than weakening the rule.
+
+## Health signals
+- `redactions`: count added to a log line when something sensitive was removed. A rising count means code is logging what it should not.
+- `audit_write_failed` (ERROR): an audit append failed and its operation rolled back.
+- `rls_denied` (WARNING): the database refused a cross-tenant access.
+- Telemetry export failures: none yet, since nothing is exported.
+
+## Baseline tenant-scoped queries
+Tenant audit, as the runtime role (RLS limits it to the tenant in context):
+```sql
+-- inside tenant_context(tenant_id)
+SELECT occurred_at, action, result, actor, request_id
+FROM audit.tenant_event ORDER BY occurred_at DESC LIMIT 100;
+```
+Logs (Loki, once deployed), always filtered by tenant:
+```
+{app="presence-core"} | json | tenant_id="<tenant uuid>"
+{app="presence-core"} | json | msg="audit_write_failed"
+```
+Operator views that join tenants must never be shared with a tenant.
+
+## Metrics to add with their subsystems
+API latency/error; workflow queue/backlog; action state/failure; connection health; tenant concurrency; GPU utilization/queue; browser queue; provider rate limits; cache hit; token/media cost; RLS/auth failures; domain/certificate state; backup/restore health.
 
 
 ---
@@ -7458,29 +7530,82 @@ On rename/release:
 
 # Audit Ledger
 
-Audit is append-oriented and human-readable.
-
-Record:
-- actor/user/service;
-- tenant/profile;
-- authority source;
-- managed-operator context;
-- action/task/workflow;
-- request and artifact references;
-- target/destination;
-- policy decisions;
-- connection used;
-- model/harness where material;
-- time;
-- result;
-- rollback/revocation;
-- break-glass reason;
-- relevant trace IDs.
+Audit is append-oriented and human-readable. Audit records must help answer:
+“Who or what did what, under whose authority, to which tenant, using which artifact, and what happened?”
 
 Sensitive values are redacted or referenced, not dumped.
 
-Audit records must help answer:
-“Who or what did what, under whose authority, to which tenant, using which artifact, and what happened?”
+Built in R0-006 ([ADR-0038](../adrs/ADR-0038-audit-and-trace-correlation.md)). Code: `apps/core/presence_core/audit.py`.
+
+## Storage
+- Schema `audit`, owned by `presence_migrator`.
+- `audit.tenant_event`: events about one tenant. FORCE row-level security on `tenant_id`, like every tenant table (ADR-0036). The runtime role `presence_app` may INSERT and SELECT, only inside the matching `tenant_context()`.
+- `audit.platform_event`: events with no tenant (for example a failed sign-in before the tenant is known). `presence_app` may INSERT only; it cannot read them back.
+- Neither table grants UPDATE, DELETE or TRUNCATE to `presence_app`. A test proves each is rejected.
+- Retention is not decided; nothing deletes audit rows in R0.
+- Expected row size: about 0.5–1 KB (mostly short text and a small `detail` object).
+- Not built: tamper-evident hashing, external anchoring, a tenant-facing read API, an operator audit-reader role.
+
+## Fields
+Every row has `id`, `occurred_at` (UTC, set by the application) and the fields below. Only `action`, `result` and `actor` are required.
+
+| Field | Meaning |
+|---|---|
+| `action` | Dotted event name from the catalogue below. |
+| `result` | `success`, `denied` or `failure`. |
+| `actor` | `user:<id>`, `service:<name>` or `operator:<id>`. An ID, never an email. |
+| `tenant_id` | The tenant the event is about. Empty means a platform event. Never taken from context. |
+| `profile_id` | Profile in that tenant (tenant events only). |
+| `authority_source` | Where the authority came from: `session`, `grant:<id>`, `break_glass`. |
+| `operator_context` | The managed operator acting for the tenant, if any. |
+| `target` | What was acted on or where it went. |
+| `policy_decision` | The policy result that allowed or denied it. |
+| `connection_id` | The connection used. |
+| `artifact_refs` | References to artifacts, never their content. |
+| `rollback_ref` | Rollback or revocation reference. |
+| `break_glass_reason` | Required reason when authority is break-glass. |
+| `request_id`, `trace_id`, `workflow_id`, `task_id`, `action_id` | Correlation IDs. Filled from the current request or job when left empty. |
+| `model`, `harness`, `reasoning_profile`, `execution_profile_id`, `development_run_id` | Reserved for AI and development-controller attribution. |
+| `detail` | Small JSON object with event-specific facts. |
+
+Every string and the whole `detail` object pass through the redaction layer before they are written ([observability](../infrastructure/observability.md#redaction)).
+
+## Event catalogue
+| Action | Emitted by | Result values |
+|---|---|---|
+| `auth.login` | Google sign-in (R0-004) | success |
+| `auth.login_failed` | Google sign-in (R0-004); platform event when no tenant is known | failure, denied |
+| `auth.logout` | sign-out (R0-004) | success |
+| `auth.profile_switch` | profile switch (R0-004) | success, denied |
+| `workflow.start` | workflow runner (R0-005) | success, failure |
+| `workflow.complete` | workflow runner (R0-005) | success, failure |
+
+The emitting tasks wire these events in; the names are fixed here so they stay stable. Add a row here before emitting a new action.
+
+## How to emit an audit event
+```python
+from django.db import transaction
+from presence_core.audit import AuditEvent, append_audit
+from presence_core.tenancy import tenant_context
+
+with tenant_context(tenant_id):            # opens the transaction and sets the tenant
+    profile.switch_to(new_profile)         # the operation being recorded
+    append_audit(AuditEvent(
+        action="auth.profile_switch",
+        result="success",
+        actor=f"user:{user.id}",
+        tenant_id=tenant_id,
+        profile_id=str(new_profile.id),
+        authority_source="session",
+    ))
+```
+
+Rules:
+1. Call `append_audit` inside the same transaction as the operation. It refuses to run outside one. If the write fails, it logs `audit_write_failed` and raises, so the operation rolls back instead of proceeding unaudited.
+2. A tenant event needs `tenant_context()` for the same tenant; the database rejects any other tenant.
+3. A platform event leaves `tenant_id` empty and runs in a plain `transaction.atomic()`.
+4. Put IDs and references in the event, never secrets, tokens, passwords, emails or document content. Redaction is a safety net, not permission.
+5. Leave correlation IDs empty; they come from `correlate()` (set by the request middleware and `tenant_context`). A job sets them with `with correlate(workflow_id=..., task_id=...):`.
 
 
 ---
@@ -8863,6 +8988,10 @@ No independent review. The owner reviews the protected files before adding the l
 ## Cost/tokens/cache
 Not measured. CI runs on free standard runners (public repository); one run takes about 2 minutes.
 
+## Fixed after the first parallel runs
+- `make scan-secrets` scanned every fetched branch, so one pull request failed on another branch's commit. It now scans only `HEAD`'s history.
+- The gitleaks container could not read a git worktree's `.git` file, so the pre-commit hook and the self-test failed inside worktrees. The shared `.git` directory is now mounted as well. Checked: a seeded credential in a worktree is rejected.
+
 ## Known limitations
 - `uv audit` is experimental.
 - The licence-check gate has no owning task.
@@ -8880,7 +9009,7 @@ Not measured. CI runs on free standard runners (public repository); one run take
 
 Written 2026-11-25. Spec: [R0-003](../../../specs/R0/R0-003-postgres-rls.md). Decisions: [ADR-0036](../../../docs/adrs/ADR-0036-postgres-roles-and-tenant-context.md). Design: [database tenancy and RLS](../../../docs/security/database-tenancy-rls.md).
 
-- Starting commit: `00d2b03` (fix(docs): skip agent worktrees when building the context export), branch based on R0-002.
+- Starting commit: `00d2b03` (fix(docs): skip agent worktrees when building the context export), branch based on R0-002; R0-002's worktree secret-scan fix (`f208a1c`) merged in afterwards.
 - Resulting commit: the head of branch `feat/R0-003-postgres-rls`. It contains this report, so it cannot name its own hash.
 - Execution profile: autonomous side session started by the operator's coordinating session; the owner was away.
 - Harness: Claude Code, desktop app.
@@ -8913,7 +9042,9 @@ None added.
   - migration 0001 reverses and reapplies;
   - an RLS denial is logged without row contents.
 - `make check` passes (format, lint, mypy strict, unit tests, web build and tests).
-- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths pass. `gate-selftest` fails locally on one check: the dockerized gitleaks cannot read the main `.git` from inside a Git worktree, scans 0 commits and exits 0. This is the worktree environment, not this change; it does not occur in CI's normal checkout. See known limitations.
+- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths pass.
+- After merging `f208a1c`, rerun in this worktree: `make check`, `make scan-secrets` (9 commits scanned, no leaks), `make test-integration` (12 tests) and `tools/gate_selftest.sh` (all gates reject seeded violations, including the pre-commit secret scan) all pass.
+- The first commit (`4634b15`) ran the pre-commit hook (no `--no-verify`), but before `f208a1c` the hook's gitleaks scanned nothing in a worktree; its diff was checked for secrets by hand, and `make scan-secrets` now covers it.
 
 ## Security checks
 - Isolation is enforced by the database for both roles (FORCE), so the owner role cannot cross tenants by accident either.
@@ -8943,11 +9074,82 @@ Not measured; the desktop session does not expose usage to the worker. No paid s
 ## Known limitations
 - `presence_migrator` has CREATEDB for test databases; production provisioning must omit it.
 - `django_migrations` and `django_content_type` were created before the default privileges and are not granted to `presence_app`.
-- `tools/gate_selftest.sh` secret-scan check fails inside a Git worktree (dockerized gitleaks sees no repository and passes). The scan fails open on a git error there; worth a follow-up so it fails closed.
 - `.github/workflows/ci.yml` and `Makefile` are protected paths; the pull request needs the owner's label.
 
 ## Docs updated
 `docs/security/database-tenancy-rls.md`, ADR-0036, `docs/DECISION_REGISTER.md`, `docs/runbooks/developer-bootstrap.md`, `CHANGELOG.md`, compiled exports.
+
+
+---
+
+# FILE: `evidence/R0/R0-006/report.md`
+
+# Implementation Report — R0-006 Audit and Observability
+
+Written 2026-11-25. Spec: [R0-006](../../../specs/R0/R0-006-audit-observability.md). Decisions: [ADR-0038](../../../docs/adrs/ADR-0038-audit-and-trace-correlation.md).
+
+- Starting commit: `219e776` (R0-003 branch head), which was still the tip of `origin/feat/R0-003-postgres-rls` at commit time.
+- Resulting commit: the head of branch `feat/R0-006-audit-observability`. It contains this report, so it cannot name its own hash.
+- Execution profile: side session started by the operator's interactive session; owner away; no controller yet (R0-011).
+- Harness: Claude Code, desktop app. Model: Claude Opus 5.5 (`claude-opus-5-5`). Reasoning: default for the session.
+- Task/spec hash: sha256 `d4107100c8b57bf6d389f8ed659ae04784e873e6957c4d0374c8a12664d0bd17` of `specs/R0/R0-006-audit-observability.md`.
+- Changed files: `apps/core/presence_core/{audit.py (new), observability.py, tenancy.py, tests.py, migrations/0002_audit.py (new)}`, `apps/web/{proxy.ts, test/smoke.test.js}`, `docs/security/audit-ledger.md`, `docs/infrastructure/observability.md`, ADR-0038, `docs/DECISION_REGISTER.md`, `CHANGELOG.md`, generated exports.
+- Migrations: `presence_core/0002_audit` creates schema `audit`, tables `tenant_event` (FORCE RLS) and `platform_event`, indexes and grants. Reverse drops the schema; tested by the existing `migrate presence_core zero` integration test and by hand (0002 → 0001 → 0002) on the dev database.
+- Rollback: revert the branch and run the reverse migration while audit tables are empty. Once events exist, changes are forward-only (spec).
+
+## Dependencies (review)
+None added. Tracing is in-house W3C Trace Context; the OpenTelemetry SDK and Collector wait until a backend runs (ADR-0038).
+
+## Tests
+- `make check` passes: format, lint, mypy strict, `tsc`, Django unit tests (redaction and correlation included), contract schemas, web build and 3 web smoke tests. The smoke tests were run with `PRESENCE_SMOKE_PORT=3197`, because another session's `next start` held port 3199 (see Known limitations).
+- `make test-integration` passes: 18 tests as the runtime role against PostgreSQL 18.7, including 6 audit tests.
+- `tools/gate_selftest.sh` passes: every gate rejects its seeded violation.
+- Mutation check: granting UPDATE and DELETE on the audit tables to `presence_app` made the append-only tests fail, so they catch the regression. The grant was then removed.
+- Output: [test-output.txt](test-output.txt).
+
+| Spec test | Where |
+|---|---|
+| Seeded bearer token, password, cookie and API-key patterns never stored | `RedactionTests`, `AuditTests` (checks the stored row and log output) |
+| UPDATE and DELETE by the runtime role rejected | `AuditTests` (both tables, plus TRUNCATE) |
+| Cross-tenant audit read denied | `AuditTests` |
+| Trace propagation web → core → worker | web → core: smoke test and `CorrelationTests`. Worker hop not built: `apps/worker` has no code. |
+| Audit-write failure rolls back the operation | `AuditTests` |
+
+## Security checks
+- `make scan-secrets`: gitleaks found no leaks. Seeded secrets in tests are built at run time from fragments, and the evidence files contain none of them ([redaction-sample.txt](redaction-sample.txt)).
+- Runtime role: INSERT and SELECT (tenant table, under RLS), INSERT only (platform table); no UPDATE, DELETE or TRUNCATE.
+- Tenant is never taken from correlation context into an audit row; RLS rejects a mismatched tenant.
+- Incoming `traceparent` and `X-Request-ID` are validated; invalid ones are replaced, so they cannot forge log lines.
+- `append_audit` refuses to run outside a transaction; on failure it logs `audit_write_failed` without the event and re-raises.
+
+## Acceptance criteria
+| Criterion | Result |
+|---|---|
+| request/trace/tenant/profile/task/action IDs supported | yes, `correlate()`; tenant set by `tenant_context()` |
+| redaction tests | yes |
+| audit append path | yes, `append_audit(AuditEvent)` |
+| representative login/profile/workflow events | names and fields fixed in the catalogue; wiring follows when R0-004 and R0-005 merge (spec dependency note) |
+| dashboards/queries distinguish tenant without exposing others | baseline tenant-scoped SQL and log queries in `docs/infrastructure/observability.md`; Grafana not deployed |
+| model/harness attribution fields reserved | yes, five reserved fields |
+| runtime role cannot UPDATE or DELETE audit rows | yes, tested |
+| an operation whose audit append fails does not commit | yes, tested |
+
+## Reviewer
+No independent review yet. The audit grants are security-critical; the owner or a second worker should review migration `0002_audit` and `audit.py` before merge.
+
+## Cost/tokens/cache
+Not measured; the desktop session does not expose usage to the worker. No paid service used.
+
+## Known limitations and follow-ups
+- Wire login, logout, profile-switch and workflow events into R0-004 and R0-005.
+- Worker trace hop when `apps/worker` gains code.
+- OpenTelemetry SDK, Collector and telemetry-export-failure metric once a backend runs; Grafana dashboards.
+- Operator audit-reader role so platform events are readable without the owner role.
+- Any key containing `token` is redacted (over-redaction); rename such fields.
+- The web smoke test defaults to port 3199. While another `next start` holds that port, plain `make check` fails; set `PRESENCE_SMOKE_PORT` to a free port.
+
+## Docs updated
+`docs/security/audit-ledger.md` (storage, fields, event catalogue, how to emit an event), `docs/infrastructure/observability.md` (backends, correlation, redaction, health signals, baseline queries), ADR-0038, `docs/DECISION_REGISTER.md`, `CHANGELOG.md`, generated exports.
 
 
 ---

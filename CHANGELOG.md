@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-25 — R0-006 audit and observability
+
+- Append-only audit schema (`audit.tenant_event` under RLS, `audit.platform_event` insert-only) and typed append interface `presence_core.audit.append_audit(AuditEvent)`. ADR-0038.
+- Redaction of secrets and personal data in every log line and audit row, with a `redactions` count; correlation IDs via `observability.correlate()`; W3C `traceparent` continued from the web proxy to the core.
+- Event catalogue and emit guide in `docs/security/audit-ledger.md`; `PRESENCE_SMOKE_PORT` overrides the web smoke-test port.
+
 ## 2026-11-25 — R0-003 PostgreSQL tenancy and RLS
 
 - Roles `presence_migrator` and `presence_app` (`infra/postgres/roles.sh`, run by `make services-up`); new `.env` values `PRESENCE_DB_MIGRATOR_PASSWORD`, `PRESENCE_DB_APP_PASSWORD`.

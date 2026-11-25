@@ -1773,29 +1773,82 @@ OpenHands/Prime agents run without production credentials or management-network 
 
 # Audit Ledger
 
-Audit is append-oriented and human-readable.
-
-Record:
-- actor/user/service;
-- tenant/profile;
-- authority source;
-- managed-operator context;
-- action/task/workflow;
-- request and artifact references;
-- target/destination;
-- policy decisions;
-- connection used;
-- model/harness where material;
-- time;
-- result;
-- rollback/revocation;
-- break-glass reason;
-- relevant trace IDs.
+Audit is append-oriented and human-readable. Audit records must help answer:
+“Who or what did what, under whose authority, to which tenant, using which artifact, and what happened?”
 
 Sensitive values are redacted or referenced, not dumped.
 
-Audit records must help answer:
-“Who or what did what, under whose authority, to which tenant, using which artifact, and what happened?”
+Built in R0-006 ([ADR-0038](../adrs/ADR-0038-audit-and-trace-correlation.md)). Code: `apps/core/presence_core/audit.py`.
+
+## Storage
+- Schema `audit`, owned by `presence_migrator`.
+- `audit.tenant_event`: events about one tenant. FORCE row-level security on `tenant_id`, like every tenant table (ADR-0036). The runtime role `presence_app` may INSERT and SELECT, only inside the matching `tenant_context()`.
+- `audit.platform_event`: events with no tenant (for example a failed sign-in before the tenant is known). `presence_app` may INSERT only; it cannot read them back.
+- Neither table grants UPDATE, DELETE or TRUNCATE to `presence_app`. A test proves each is rejected.
+- Retention is not decided; nothing deletes audit rows in R0.
+- Expected row size: about 0.5–1 KB (mostly short text and a small `detail` object).
+- Not built: tamper-evident hashing, external anchoring, a tenant-facing read API, an operator audit-reader role.
+
+## Fields
+Every row has `id`, `occurred_at` (UTC, set by the application) and the fields below. Only `action`, `result` and `actor` are required.
+
+| Field | Meaning |
+|---|---|
+| `action` | Dotted event name from the catalogue below. |
+| `result` | `success`, `denied` or `failure`. |
+| `actor` | `user:<id>`, `service:<name>` or `operator:<id>`. An ID, never an email. |
+| `tenant_id` | The tenant the event is about. Empty means a platform event. Never taken from context. |
+| `profile_id` | Profile in that tenant (tenant events only). |
+| `authority_source` | Where the authority came from: `session`, `grant:<id>`, `break_glass`. |
+| `operator_context` | The managed operator acting for the tenant, if any. |
+| `target` | What was acted on or where it went. |
+| `policy_decision` | The policy result that allowed or denied it. |
+| `connection_id` | The connection used. |
+| `artifact_refs` | References to artifacts, never their content. |
+| `rollback_ref` | Rollback or revocation reference. |
+| `break_glass_reason` | Required reason when authority is break-glass. |
+| `request_id`, `trace_id`, `workflow_id`, `task_id`, `action_id` | Correlation IDs. Filled from the current request or job when left empty. |
+| `model`, `harness`, `reasoning_profile`, `execution_profile_id`, `development_run_id` | Reserved for AI and development-controller attribution. |
+| `detail` | Small JSON object with event-specific facts. |
+
+Every string and the whole `detail` object pass through the redaction layer before they are written ([observability](../infrastructure/observability.md#redaction)).
+
+## Event catalogue
+| Action | Emitted by | Result values |
+|---|---|---|
+| `auth.login` | Google sign-in (R0-004) | success |
+| `auth.login_failed` | Google sign-in (R0-004); platform event when no tenant is known | failure, denied |
+| `auth.logout` | sign-out (R0-004) | success |
+| `auth.profile_switch` | profile switch (R0-004) | success, denied |
+| `workflow.start` | workflow runner (R0-005) | success, failure |
+| `workflow.complete` | workflow runner (R0-005) | success, failure |
+
+The emitting tasks wire these events in; the names are fixed here so they stay stable. Add a row here before emitting a new action.
+
+## How to emit an audit event
+```python
+from django.db import transaction
+from presence_core.audit import AuditEvent, append_audit
+from presence_core.tenancy import tenant_context
+
+with tenant_context(tenant_id):            # opens the transaction and sets the tenant
+    profile.switch_to(new_profile)         # the operation being recorded
+    append_audit(AuditEvent(
+        action="auth.profile_switch",
+        result="success",
+        actor=f"user:{user.id}",
+        tenant_id=tenant_id,
+        profile_id=str(new_profile.id),
+        authority_source="session",
+    ))
+```
+
+Rules:
+1. Call `append_audit` inside the same transaction as the operation. It refuses to run outside one. If the write fails, it logs `audit_write_failed` and raises, so the operation rolls back instead of proceeding unaudited.
+2. A tenant event needs `tenant_context()` for the same tenant; the database rejects any other tenant.
+3. A platform event leaves `tenant_id` empty and runs in a plain `transaction.atomic()`.
+4. Put IDs and references in the event, never secrets, tokens, passwords, emails or document content. Redaction is a safety net, not permission.
+5. Leave correlation IDs empty; they come from `correlate()` (set by the request middleware and `tenant_context`). A job sets them with `with correlate(workflow_id=..., task_id=...):`.
 
 
 ---
@@ -2027,37 +2080,57 @@ Inference outage should degrade local AI/media capability and permit configured 
 
 # Observability
 
-Use OpenTelemetry as the instrumentation baseline.
+Use OpenTelemetry conventions as the instrumentation baseline. Logs must not contain secrets, raw authorization tokens, passwords or unnecessary personal data. Avoid observability sprawl: add a storage backend only when something needs it.
 
-Correlate:
-- request_id
-- trace_id
-- tenant_id/profile_id
-- workflow_id
-- task_id
-- action_id
-- skill/version
-- connector/provider
-- model/harness/reasoning profile where applicable.
+## Backends
+Decided in ADR-0033: an OpenTelemetry Collector feeding Prometheus (metrics), Loki (logs) and Tempo (traces), viewed in Grafana, internal only. None is deployed yet (R0-006, [ADR-0038](../adrs/ADR-0038-audit-and-trace-correlation.md)). Until then:
+- logs are one JSON object per line on standard output;
+- traces use W3C Trace Context headers (`traceparent`), the OpenTelemetry default propagator, implemented in-house with no SDK;
+- no metrics are exported.
 
-Metrics:
-- API latency/error;
-- workflow queue/backlog;
-- action state/failure;
-- connection health;
-- tenant concurrency;
-- GPU utilization/queue;
-- browser queue;
-- provider rate limits;
-- cache hit;
-- token/media cost;
-- RLS/auth failures;
-- domain/certificate state;
-- backup/restore health.
+Adding the OpenTelemetry SDK and Collector is a follow-up once the first backend runs. Sampling is then set at the Collector (start: 10% of traces, 100% of error traces).
 
-Logs must not contain secrets, raw authorization tokens, passwords or unnecessary PII.
+## Correlation
+| ID | Set by |
+|---|---|
+| `request_id` | `X-Request-ID` header if it is a short plain token, otherwise new (web proxy and core middleware) |
+| `trace_id` | incoming valid `traceparent`, otherwise new; the web proxy forwards it to the core |
+| `tenant_id` | `tenant_context()` |
+| `profile_id`, `workflow_id`, `task_id`, `action_id` | `presence_core.observability.correlate(...)` in the code that knows them |
 
-Prometheus/Grafana/Loki are acceptable initial choices when needed; avoid observability sprawl.
+Also to correlate later: skill/version, connector/provider, model/harness/reasoning profile.
+
+`correlate()` keeps the IDs for the current request or job. Every JSON log line and every audit event in the block carries them. Both apps return `X-Request-ID` and `traceparent` response headers. The worker hop arrives with the worker (`apps/worker` has no code yet).
+
+## Redaction
+`presence_core.observability.redact()` runs on every log line (message, fields and exception text) and every audit payload. It replaces with `[REDACTED]`:
+- values under keys that name a password, secret, token, authorization, cookie, API key, credential, private key, session or OTP;
+- bearer and basic credentials, JWTs, provider API keys (`sk-…`), GitHub, Slack and AWS key formats, private-key blocks, `key=value` credentials, cookie headers and email addresses, anywhere in text.
+
+Known over-redaction: any key containing `token` (for example `tokens_used`) is redacted; rename such fields (`token_count`) rather than weakening the rule.
+
+## Health signals
+- `redactions`: count added to a log line when something sensitive was removed. A rising count means code is logging what it should not.
+- `audit_write_failed` (ERROR): an audit append failed and its operation rolled back.
+- `rls_denied` (WARNING): the database refused a cross-tenant access.
+- Telemetry export failures: none yet, since nothing is exported.
+
+## Baseline tenant-scoped queries
+Tenant audit, as the runtime role (RLS limits it to the tenant in context):
+```sql
+-- inside tenant_context(tenant_id)
+SELECT occurred_at, action, result, actor, request_id
+FROM audit.tenant_event ORDER BY occurred_at DESC LIMIT 100;
+```
+Logs (Loki, once deployed), always filtered by tenant:
+```
+{app="presence-core"} | json | tenant_id="<tenant uuid>"
+{app="presence-core"} | json | msg="audit_write_failed"
+```
+Operator views that join tenants must never be shared with a tenant.
+
+## Metrics to add with their subsystems
+API latency/error; workflow queue/backlog; action state/failure; connection health; tenant concurrency; GPU utilization/queue; browser queue; provider rate limits; cache hit; token/media cost; RLS/auth failures; domain/certificate state; backup/restore health.
 
 
 ---

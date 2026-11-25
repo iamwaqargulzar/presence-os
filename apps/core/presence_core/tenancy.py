@@ -14,9 +14,11 @@ from uuid import UUID
 
 from django.db import DEFAULT_DB_ALIAS, DatabaseError, connections, migrations, transaction
 
+from presence_core.observability import correlate
+
 TENANT_SETTING = "presence.tenant_id"
 _CURRENT_TENANT = f"NULLIF(current_setting('{TENANT_SETTING}', true), '')::uuid"
-_TABLE_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+_TABLE_NAME = re.compile(r"^([a-z_][a-z0-9_]{0,62}\.)?[a-z_][a-z0-9_]{0,62}$")  # optional schema
 _INSUFFICIENT_PRIVILEGE = "42501"  # SQLSTATE for an RLS write rejection or a missing grant
 
 logger = logging.getLogger("presence.rls")
@@ -35,7 +37,7 @@ def tenant_context(tenant_id: UUID, using: str = DEFAULT_DB_ALIAS) -> Iterator[N
 
     Nested use restores the outer tenant on exit; on error the rollback restores it.
     """
-    with transaction.atomic(using=using):
+    with transaction.atomic(using=using), correlate(tenant_id=tenant_id):
         with connections[using].cursor() as cursor:
             cursor.execute("SELECT coalesce(current_setting(%s, true), '')", [TENANT_SETTING])
             (previous,) = cursor.fetchone()
@@ -82,14 +84,15 @@ def protect_tenant_table(table: str) -> migrations.RunSQL:
 
 
 def unprotected_tenant_tables(using: str = DEFAULT_DB_ALIAS) -> list[str]:
-    """Tables with a tenant_id column that lack enabled and forced RLS or any policy."""
+    """Tables (any schema) with a tenant_id column that lack enabled and forced RLS or any policy."""
     with connections[using].cursor() as cursor:
         cursor.execute(
             """
-            SELECT c.relname FROM pg_class c
+            SELECT c.oid::regclass::text FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
             JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
-            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+            WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg\\_%'
+              AND c.relkind IN ('r', 'p')
               AND NOT (c.relrowsecurity AND c.relforcerowsecurity
                        AND EXISTS (SELECT FROM pg_policy p WHERE p.polrelid = c.oid))
             ORDER BY 1

@@ -39,6 +39,7 @@
 - PostgreSQL shared DB + tenant_id + RLS.
 - runtime DB role does not own tables / BYPASSRLS.
 - Roles `presence_migrator` (owns schema, runs migrations) and `presence_app` (runtime); transaction-scoped `presence.tenant_id`; FORCE RLS on every tenant table; composite `(tenant_id, id)` foreign keys (R0-003, ADR-0036).
+- Audit schema `audit`: `tenant_event` (FORCE RLS, runtime INSERT/SELECT) and `platform_event` (runtime INSERT only); no UPDATE/DELETE for the runtime role; one append path `append_audit()`; redaction on every log line and audit row; in-house W3C `traceparent` correlation (R0-006, ADR-0038).
 - external observations become Candidate Facts before canonical truth.
 - FACT/PREFERENCE/DECISION/CONVERSATION_SUMMARY/TASK_STATE are distinct.
 - score formulas versioned.
