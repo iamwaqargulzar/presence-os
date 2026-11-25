@@ -8,7 +8,9 @@
 export $(shell sed -n 's/^\([A-Z_]*\)=.*/\1/p' .env 2>/dev/null)
 
 GITLEAKS_IMAGE := ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-GITLEAKS := docker run --rm -v "$(CURDIR):/repo" -w /repo $(GITLEAKS_IMAGE)
+# The shared .git directory is mounted at its own path too, so the scan also works in a git worktree.
+GIT_COMMON := $(shell git rev-parse --path-format=absolute --git-common-dir)
+GITLEAKS := docker run --rm -v "$(CURDIR):/repo" -v "$(GIT_COMMON):$(GIT_COMMON)" -w /repo $(GITLEAKS_IMAGE)
 # Not a secret: settings need a key to import; tests and type checks never use it for anything.
 TEST_ENV := PRESENCE_SECRET_KEY=insecure-test-only
 WEB := cd apps/web && pnpm -s
@@ -61,7 +63,7 @@ audit:
 	$(WEB) audit --audit-level high
 
 scan-secrets:
-	$(GITLEAKS) git --redact /repo
+	$(GITLEAKS) git --redact --log-opts=HEAD /repo  # this branch's history only, not every fetched branch
 
 scan-staged:
 	$(GITLEAKS) git --pre-commit --staged --redact /repo
