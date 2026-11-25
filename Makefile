@@ -1,7 +1,7 @@
 # Gate command contract (R0-001). CI (R0-002) and the gate runner (R0-011) call these targets.
 # Exit code 0 = pass, non-zero = fail. Renaming a target or changing its meaning is a breaking change.
 .PHONY: bootstrap fmt fmt-check lint typecheck test test-integration check audit scan-secrets scan-staged \
-	services-up services-down dev-core dev-web
+	services-up services-down dev-core dev-web dev-worker
 
 # Local settings (.env, never committed); CI sets the same variables itself.
 -include .env
@@ -33,13 +33,14 @@ lint:
 	$(WEB) lint
 
 typecheck:
-	$(TEST_ENV) uv run mypy apps/core contracts tools/ci_run.py tools/tests
+	$(TEST_ENV) uv run mypy apps/core apps/worker contracts tools/ci_run.py tools/tests
 	$(WEB) typecheck
 
 test:
 	$(TEST_ENV) uv run python apps/core/manage.py test presence_core --exclude-tag integration
 	uv run python -m unittest discover -s contracts/tests
 	uv run python -m unittest discover -s tools/tests
+	uv run python -m unittest discover -s apps/worker -t apps/worker -p 'test_unit.py'
 	$(WEB) build
 	$(WEB) test
 
@@ -49,9 +50,10 @@ check: fmt-check lint typecheck test
 test-integration: services-up
 	$(TEST_ENV) uv run python apps/core/manage.py makemigrations --check --dry-run
 	$(TEST_ENV) uv run python apps/core/manage.py test presence_core --tag integration --noinput
+	uv run python -m unittest discover -s apps/worker -t apps/worker -p 'test_integration.py'
 
 services-up:
-	docker compose up -d --wait postgres
+	docker compose up -d --wait postgres temporal
 
 services-down:
 	docker compose down
@@ -71,3 +73,6 @@ dev-core:
 
 dev-web:
 	$(WEB) dev
+
+dev-worker:
+	cd apps/worker && uv run python -m presence_worker

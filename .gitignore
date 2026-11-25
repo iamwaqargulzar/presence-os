@@ -25,3 +25,4 @@ tmp/
 *.tsbuildinfo
 next-env.d.ts
 reports/
+var/

@@ -68,6 +68,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md`](../docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md) — ADR-0033 — Technical Defaults for R0 and R1
 - [`docs/adrs/ADR-0034-r0-001-tooling-choices.md`](../docs/adrs/ADR-0034-r0-001-tooling-choices.md) — ADR-0034 — R0-001 Tooling Choices and Node Without Corepack
 - [`docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md`](../docs/adrs/ADR-0035-ci-pipeline-and-protected-paths.md) — ADR-0035 — CI Pipeline, Result Contract and Protected Paths
+- [`docs/adrs/ADR-0036-temporal-foundation.md`](../docs/adrs/ADR-0036-temporal-foundation.md) — ADR-0036 — Temporal Foundation: Pins, Development Server and Payload Rules
 - [`docs/adrs/README.md`](../docs/adrs/README.md) — Architecture Decision Records
 
 ## ai
@@ -92,6 +93,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/architecture/context-compiler.md`](../docs/architecture/context-compiler.md) — Context Compiler and Memory Loading
 - [`docs/architecture/cost-resource-governance.md`](../docs/architecture/cost-resource-governance.md) — Cost and Resource Governance
 - [`docs/architecture/diagrams.md`](../docs/architecture/diagrams.md) — Architecture Diagrams
+- [`docs/architecture/how-to-write-a-workflow.md`](../docs/architecture/how-to-write-a-workflow.md) — How to Write a Workflow
 - [`docs/architecture/modular-monolith.md`](../docs/architecture/modular-monolith.md) — Modular Monolith Boundaries
 - [`docs/architecture/notifications-and-attention.md`](../docs/architecture/notifications-and-attention.md) — Notifications and Attention
 - [`docs/architecture/platform-engineer-and-ecosystem-watch.md`](../docs/architecture/platform-engineer-and-ecosystem-watch.md) — Platform Engineer and Ecosystem Watch

@@ -1,0 +1,6 @@
+# Reviewed false positives only. Changing this file needs the owner's 'owner-approved-protected-change' label.
+# R0-005, commit b8cc918: rule generic-api-key matched a base64 Temporal payload in a recorded test history.
+# It decodes to a synthetic request_key (a random uuid4 hex the integration test made up), not a credential.
+# The history was re-recorded with a short key in c6e7c94; these lines stay because the commit is in branch history.
+b8cc9183ab61965c78b2995dc6102bc212408fc2:apps/worker/presence_worker/tests/histories/reference_v1.json:generic-api-key:22
+b8cc9183ab61965c78b2995dc6102bc212408fc2:apps/worker/presence_worker/tests/histories/reference_v1.json:generic-api-key:132
