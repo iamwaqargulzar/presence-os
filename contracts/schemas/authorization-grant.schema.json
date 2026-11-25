@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuthorizationGrant",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "actor_id",
+    "authority_source",
+    "action_class",
+    "scope",
+    "expires_at",
+    "risk",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "actor_id": {
+      "type": "string"
+    },
+    "authority_source": {
+      "enum": [
+        "EXPLICIT_HUMAN",
+        "DELEGATION_POLICY",
+        "APPROVED_PROPOSAL",
+        "VISIBLE_UI_ACTION"
+      ]
+    },
+    "authorization_mode": {
+      "enum": [
+        "OUTCOME_BOUND",
+        "ARTIFACT_BOUND"
+      ]
+    },
+    "action_class": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object"
+    },
+    "constraints": {
+      "type": "object"
+    },
+    "artifact_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoked_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

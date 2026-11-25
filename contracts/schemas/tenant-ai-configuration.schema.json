@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TenantAIConfiguration",
+  "type": "object",
+  "required": [
+    "tenant_id",
+    "mode"
+  ],
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "PINNED",
+        "PLATFORM_DEFAULT"
+      ]
+    },
+    "override_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "privacy_mode": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "monthly_ai_budget": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "provider_policy_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

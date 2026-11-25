@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SkillManifest",
+  "type": "object",
+  "required": [
+    "id",
+    "version",
+    "status",
+    "inputs",
+    "outputs",
+    "permissions",
+    "risk_class",
+    "limits"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "INTERNAL",
+        "BETA",
+        "ACTIVE",
+        "DEPRECATED",
+        "DISABLED"
+      ]
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "outputs": {
+      "type": "object"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_class": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_cost": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_tool_calls": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "retry_policy": {
+      "type": "object"
+    },
+    "checkpoint_policy": {
+      "type": "object"
+    },
+    "cache_policy": {
+      "type": "object"
+    },
+    "evaluation_suite": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope": {
+      "enum": [
+        "PLATFORM",
+        "GLOBAL",
+        "TENANT"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

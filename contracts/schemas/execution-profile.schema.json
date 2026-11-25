@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionProfile",
+  "type": "object",
+  "required": [
+    "id",
+    "model",
+    "harness",
+    "reasoning",
+    "context_strategy",
+    "status",
+    "credential_class"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "provider",
+        "id"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "reasoning": {
+      "type": "object"
+    },
+    "context_strategy": {
+      "type": "string"
+    },
+    "cache_strategy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "qualified_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "enum": [
+        "DISCOVERED",
+        "CANDIDATE",
+        "QUALIFIED",
+        "SHADOW",
+        "CANARY",
+        "ACTIVE",
+        "RETIRED",
+        "REJECTED"
+      ]
+    },
+    "benchmark_summary": {
+      "type": "object"
+    },
+    "credential_class": {
+      "enum": [
+        "OPERATOR_SUBSCRIPTION",
+        "API"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,27 @@
+baseline_date: 2026-08-08
+status: preliminary_single_trial
+profile:
+  harness: Prime Agent
+  harness_version: 0.7.1
+  model: deepseek-v4-flash
+  provider_route: OpenCode Go
+  reasoning: high
+outcome:
+  full_benchmark_completed: true
+  final_tests: "61/61"
+  architecture_seeded_defects: "20/20"
+  independent_score: 89
+usage:
+  fresh_input_tokens: 27895
+  cache_read_tokens: 7123328
+  cache_write_tokens: 0
+  output_tokens: 168893
+  native_total: 7320116
+  model_calls: 82
+  tool_calls: 80
+  wall_seconds: 1437.94
+  api_equivalent_cost_usd: 0.0355703292
+notes:
+  - This is evidence for the initial champion, not a permanent guarantee.
+  - Real R0/R1 tasks continue PresenceBench telemetry.
+source: evidence/HARNESS_TELEMETRY_AND_FLASH_BENCHMARK_2026-08-08.md

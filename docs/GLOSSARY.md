@@ -1,0 +1,34 @@
+# Glossary
+
+- **Presence OS:** The complete agentic digital presence operating system.
+- **Profile:** An Individual Profile or Company Profile operated by a Person.
+- **Tenant:** Isolation and authority boundary for one of the operator's own companies or one managed client.
+- **Operator:** The single owner who runs the deployment and manages every tenant through explicit access grants.
+- **Client role:** A tenant-scoped login for a client: viewer, requester or approver. No client role can start AI work.
+- **Credential class:** Whether a model profile uses the operator's subscription (operator-started runs only) or API credentials (allowed for unattended runs).
+- **Tenant provider policy:** Per-tenant rule for which AI providers may receive which data classes.
+- **Presence Graph:** Mapping of canonical identity/truth to external digital surfaces.
+- **Digital Presence Passport:** Portable exportable identity/presence object owned by the customer.
+- **Presence Scan/Snapshot:** Initial automated assessment of current digital presence.
+- **Presence Gap:** Missing, incorrect, stale or weak representation across surfaces.
+- **Opportunity:** Prioritized next action derived from evidence, goals, impact, confidence, effort and cost.
+- **AttentionItem:** Cross-module item classified URGENT / IMPORTANT / NORMAL / BACKGROUND.
+- **Director Agent:** High-level orchestrator selecting workflows/skills; not a giant all-permissions agent.
+- **Skill:** Versioned, permissioned, testable unit of domain/tool capability.
+- **Action Broker:** Sole privileged service allowed to cross external side-effect boundaries.
+- **AuthorizationGrant:** Machine-enforced permission minted by the Authorization Service after checking real authority.
+- **Outcome-bound authorization:** Permission for a constrained outcome.
+- **Artifact-bound authorization:** Permission bound to exact artifact hash/target/material parameters.
+- **Connection Broker:** Unified management of OAuth/API/browser connections.
+- **Context Compiler:** Produces minimal relevant model context from memory, knowledge, task state and retrieval.
+- **Resource Governor:** Controls shared concurrency/queues/noisy neighbors.
+- **Cost Governor:** Controls token/tool/media spend and reserves budgets before expensive work.
+- **Fetch Broker:** Safe HTTP(S) fetch boundary that prevents SSRF/private-network access.
+- **Candidate Fact:** External observation proposed for canonical knowledge; not yet authoritative.
+- **Conflicted Fact:** Two or more credible sources disagree and require resolution.
+- **Execution Profile:** Model × harness × reasoning configuration × context/cache strategy.
+- **PresenceBench:** Private benchmark/evaluation system used to qualify execution profiles.
+- **Managed Operator:** The capacity in which the operator acts inside a tenant, under an explicit access grant.
+- **Break Glass:** Short-lived, reason-required emergency access with prominent audit.
+- **Canonical random hostname:** Immutable, collision-resistant platform route assigned to a tenant/service.
+- **Vanity hostname:** Optional human-readable platform alias subject to availability and reserved-name policy.

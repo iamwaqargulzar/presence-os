@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Connection",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "provider",
+    "account_ref",
+    "credential_ref",
+    "status",
+    "capabilities"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provider": {
+      "type": "string"
+    },
+    "account_ref": {
+      "type": "string"
+    },
+    "credential_ref": {
+      "type": "string"
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "enum": [
+        "CONNECTED",
+        "DEGRADED",
+        "REAUTH_REQUIRED",
+        "PERMISSION_LOST",
+        "RATE_LIMITED",
+        "PROVIDER_OUTAGE",
+        "POLICY_BLOCKED",
+        "DISCONNECTED"
+      ]
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "refresh_state": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_verified": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "health": {
+      "type": "object"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

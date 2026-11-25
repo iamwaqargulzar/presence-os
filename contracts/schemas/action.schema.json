@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Action",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "action_class",
+    "state",
+    "idempotency_key"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "action_class": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "DRAFT",
+        "PREPARED",
+        "AUTHORIZED",
+        "QUEUED",
+        "EXECUTING",
+        "SUCCEEDED",
+        "OUTCOME_UNKNOWN",
+        "FAILED",
+        "CANCELLED",
+        "REVOKED",
+        "EXPIRED"
+      ]
+    },
+    "authorization_grant_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifact_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "artifact_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target": {
+      "type": "object"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
+    "budget_reservation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "base_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

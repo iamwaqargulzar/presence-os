@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlanAIEntitlement",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "revision",
+    "ai_tier",
+    "default_profile_id",
+    "allowed_profile_ids"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "ai_tier": {
+      "type": "string"
+    },
+    "default_profile_id": {
+      "type": "string"
+    },
+    "allowed_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "included_compute_units": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "max_concurrency": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "max_escalation_tier": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "allowed_privacy_modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

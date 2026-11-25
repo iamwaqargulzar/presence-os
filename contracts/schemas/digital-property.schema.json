@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DigitalProperty",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "profile_id",
+    "name",
+    "property_type",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "property_type": {
+      "enum": [
+        "WEBSITE",
+        "WEB_APP",
+        "PORTAL",
+        "LANDING",
+        "BOOKING",
+        "STORE",
+        "DOCS_HELP",
+        "DASHBOARD",
+        "OTHER"
+      ]
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "ACTIVE",
+        "SUSPENDED",
+        "ARCHIVED",
+        "DELETING",
+        "DELETED"
+      ]
+    },
+    "canonical_hostname_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_entitlement_key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

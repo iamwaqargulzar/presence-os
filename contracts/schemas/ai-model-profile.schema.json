@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AIModelProfile",
+  "type": "object",
+  "required": [
+    "id",
+    "revision",
+    "provider",
+    "model_id",
+    "reasoning",
+    "context_strategy",
+    "status",
+    "credential_class"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "provider": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "reasoning": {
+      "type": "object"
+    },
+    "context_strategy": {
+      "type": "string"
+    },
+    "cache_strategy": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "privacy_class": {
+      "type": "string"
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "ACTIVE",
+        "CANARY",
+        "DEPRECATED",
+        "DISABLED"
+      ]
+    },
+    "effective_from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "credential_class": {
+      "enum": [
+        "OPERATOR_SUBSCRIPTION",
+        "API"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

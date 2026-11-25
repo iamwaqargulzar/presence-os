@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hostname",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "service_id",
+    "hostname",
+    "type",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "hostname": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "enum": [
+        "RANDOM_CANONICAL",
+        "VANITY",
+        "CUSTOM_DOMAIN",
+        "PREVIEW"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "ACTIVE",
+        "REDIRECT",
+        "RELEASE_PENDING",
+        "QUARANTINED",
+        "DISABLED",
+        "FAILED"
+      ]
+    },
+    "is_primary": {
+      "type": "boolean"
+    },
+    "redirect_to": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "released_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

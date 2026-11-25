@@ -1,0 +1,97 @@
+project:
+  name: Presence OS
+  kind: private operator-run multi-tenant digital presence system (not sold)
+  status: specification complete for R0 and R1; R2 and R3 task contracts written (revision 1); Git initialised; no code
+  current_as_of: '2026-11-25'
+  first_baseline: '2026-08-10'
+  entry_point: 00_START_HERE.md
+  status_file: docs/handoff/STATUS.md
+  handoff_protocol: docs/handoff/README.md
+  documentation_standards: docs/DOCUMENTATION_STANDARDS.md
+operating_model:
+  operator: one owner runs the deployment and manages every tenant through explicit access grants
+  tenants: the operator's own companies and managed clients
+  client_roles: [viewer, requester, approver]
+  client_can_start_ai_work: false
+  sold_as_product: false
+release_train:
+- R0 Engineering Foundation
+- R1 Presence Kernel
+- R2 Presence Intelligence
+- R3 Business Presence
+- R4 Growth Operations
+- R5 Expansion
+task_contracts:
+  R0: {path: specs/R0, count: 12, state: complete}
+  R1: {path: specs/R1, count: 13, state: complete}
+  R2: {path: specs/R2, count: 17, state: 'revision 1; recheck after R1 exit'}
+  R3: {path: specs/R3, count: 14, state: 'revision 1; recheck after R1 and R2 exits'}
+stack:
+  frontend: Next.js + TypeScript
+  backend: Django + Python (modular monolith)
+  database: PostgreSQL + Row Level Security
+  vectors: pgvector
+  workflows: Temporal
+  cache: Redis
+  objects: S3-compatible object storage
+  containers: Docker / Compose
+  browser: Playwright
+  sandbox: gVisor
+  ingress: Cloudflare Tunnel + Caddy
+  sign_in: Google sign-in only, by invitation, no passwords
+  secrets: OpenBao/equivalent before client data is live
+  observability: OpenTelemetry
+physical_hosts:
+  presence_host: Proxmox VE (Edge, Core, Data, Worker VMs)
+  backup_host: Proxmox Backup Server / storage
+  inference_host:
+    optional: true
+    cpu: Ryzen 7 8700G
+    ram: 32 GB
+    gpu: RTX 3090
+access:
+  public_and_clients: Cloudflare Tunnel
+  operator_console: dedicated control-plane hostname through the tunnel
+  proxmox_ssh: local network or operator WireGuard VPN; never published
+ai:
+  routing_default: CLOUD_ONLY
+  task_classes:
+    frontier: planning, architecture, security-sensitive work, review
+    low_cost_api: high-volume machine-checkable work
+  credential_classes:
+    OPERATOR_SUBSCRIPTION: operator-started or approved runs only, official harness on Worker VM
+    API: required for scheduled and unattended runs
+  tenant_provider_policy: hard filter
+  pinning: effective model profile pinned per run/session
+  override_precedence:
+  - bounded run override
+  - tenant override
+  - platform default
+development_factory:
+  controller:
+    initial: OpenHands-backed DevelopmentController
+    status: CANARY/SELECTED
+  workers:
+  - Prime Agent (PrimeWorkerAdapter via RPC/process)
+  - Claude Code (Claude Agent SDK adapter, primary for R0/R1)
+  primary_worker: Claude Code via Claude Agent SDK (ADR-0033); Prime Agent second
+  fallback_workers: [Codex, Oh My Pi, OpenCode, ReasoniX]
+  default_orchestration: deterministic_zero_llm
+  production_access: forbidden
+build_preference:
+  product_features: built in-house
+  third_party_applications: studied only; not deployed; nothing copied
+  infrastructure_and_libraries: used as they are after dependency review
+non_negotiables:
+- human authority
+- truth and evidence
+- tenant isolation
+- action broker side-effect boundary
+- untrusted content is data not authority
+- client data ownership/export
+- accessibility
+- provider/model/harness replaceability
+- cost and resource governance
+digital_properties:
+  cardinality: many per tenant
+  isolation: [environment, deployment, hostname, secrets, data bindings, limits, audit]

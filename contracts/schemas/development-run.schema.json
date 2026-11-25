@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DevelopmentRun",
+  "type": "object",
+  "required": [
+    "id",
+    "task_id",
+    "task_hash",
+    "start_commit",
+    "controller",
+    "execution_profile_id",
+    "sandbox_profile_id",
+    "state"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "task_hash": {
+      "type": "string"
+    },
+    "start_commit": {
+      "type": "string"
+    },
+    "controller": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution_profile_id": {
+      "type": "string"
+    },
+    "sandbox_profile_id": {
+      "type": "string"
+    },
+    "gate_policy_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "enum": [
+        "PLANNED",
+        "READY",
+        "LEASED",
+        "WORKSPACE_READY",
+        "WORKER_RUNNING",
+        "VERIFYING",
+        "REVIEWING",
+        "INTEGRATING",
+        "MERGE_CANDIDATE",
+        "STAGING_READY",
+        "BLOCKED",
+        "WORKER_FAILED",
+        "GATE_FAILED",
+        "REVIEW_FAILED",
+        "CONFLICT",
+        "TIMED_OUT",
+        "BUDGET_EXHAUSTED",
+        "CANCELLED",
+        "ORPHANED"
+      ]
+    },
+    "worker_session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "usage": {
+      "type": "object"
+    },
+    "result": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

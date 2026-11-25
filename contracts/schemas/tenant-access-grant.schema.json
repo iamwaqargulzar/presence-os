@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TenantAccessGrant",
+  "type": "object",
+  "required": [
+    "id",
+    "tenant_id",
+    "grantee_id",
+    "role",
+    "permissions",
+    "valid_from",
+    "status",
+    "reason",
+    "granted_by"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "grantee_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "approval_categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "ACTIVE",
+        "REVOKED",
+        "EXPIRED",
+        "PENDING"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "MANAGED_SERVICE",
+        "SUPPORT",
+        "TEMPORARY",
+        "CONTRACTOR",
+        "BREAK_GLASS"
+      ]
+    },
+    "granted_by": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
