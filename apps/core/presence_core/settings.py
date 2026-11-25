@@ -25,5 +25,6 @@ LOGGING = {
     "formatters": {"json": {"()": "presence_core.observability.JsonFormatter"}},
     "handlers": {"stdout": {"class": "logging.StreamHandler", "formatter": "json"}},
     "root": {"handlers": ["stdout"], "level": os.environ.get("PRESENCE_LOG_LEVEL", "INFO")},
-    "loggers": {"django.server": {"handlers": ["stdout"], "propagate": False}},
+    # presence.request already logs every request with its ID; keep only django.server errors.
+    "loggers": {"django.server": {"handlers": ["stdout"], "level": "WARNING", "propagate": False}},
 }

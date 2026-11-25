@@ -143,6 +143,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 ## handoff
 - [`docs/handoff/README.md`](../docs/handoff/README.md) — Session Handoff Protocol
 - [`docs/handoff/STATUS.md`](../docs/handoff/STATUS.md) — Project Status
+- [`docs/handoff/log/2026-11-25-r0-001-repository-toolchain.md`](../docs/handoff/log/2026-11-25-r0-001-repository-toolchain.md) — Session Handoff — 2026-11-25 — R0-001 repository and toolchain
 - [`docs/handoff/log/2026-11-25-specification-baseline.md`](../docs/handoff/log/2026-11-25-specification-baseline.md) — Session Handoff — 2026-11-25 — Specification baseline
 
 ## infrastructure
