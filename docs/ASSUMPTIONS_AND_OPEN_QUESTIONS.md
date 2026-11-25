@@ -26,7 +26,7 @@ Current as of 2026-11-15. These do not block R0 unless marked blocking. Each tas
 
 ## Blocking for R0-001
 
-None. Versions, package managers and repository hosting are decided in ADR-0032. Repository hosting (private GitHub) is a default the owner can still change before the first push.
+None. Resolved and built on 2026-11-25: versions and package managers (ADR-0032, ADR-0034), repository hosting (private GitHub repository created and pushed by the owner on 2026-11-25).
 
 ## R0 and R1 decisions
 

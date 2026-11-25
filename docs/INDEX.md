@@ -66,6 +66,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/adrs/ADR-0031-postiz-self-hosted-social-publishing.md`](../docs/adrs/ADR-0031-postiz-self-hosted-social-publishing.md) — ADR-0031 — Postiz as a Self-Hosted Social Publishing Service
 - [`docs/adrs/ADR-0032-toolchain-versions-and-repository.md`](../docs/adrs/ADR-0032-toolchain-versions-and-repository.md) — ADR-0032 — Toolchain Versions, Package Managers and Repository
 - [`docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md`](../docs/adrs/ADR-0033-technical-defaults-for-r0-and-r1.md) — ADR-0033 — Technical Defaults for R0 and R1
+- [`docs/adrs/ADR-0034-r0-001-tooling-choices.md`](../docs/adrs/ADR-0034-r0-001-tooling-choices.md) — ADR-0034 — R0-001 Tooling Choices and Node Without Corepack
 - [`docs/adrs/README.md`](../docs/adrs/README.md) — Architecture Decision Records
 
 ## ai
@@ -185,6 +186,7 @@ Generated 2026-11-25 by `tools/build_docs.py`. Files under `archive` are not cur
 - [`docs/runbooks/backup-restore-drill.md`](../docs/runbooks/backup-restore-drill.md) — Runbook — Backup Restore Drill
 - [`docs/runbooks/connector-api-change.md`](../docs/runbooks/connector-api-change.md) — Runbook — External API / Connector Change
 - [`docs/runbooks/custom-domain-onboarding.md`](../docs/runbooks/custom-domain-onboarding.md) — Runbook — Custom Domain Onboarding
+- [`docs/runbooks/developer-bootstrap.md`](../docs/runbooks/developer-bootstrap.md) — Developer Bootstrap
 - [`docs/runbooks/model-harness-qualification.md`](../docs/runbooks/model-harness-qualification.md) — Runbook — Model/Harness Qualification
 - [`docs/runbooks/new-tenant-first-15-minutes.md`](../docs/runbooks/new-tenant-first-15-minutes.md) — Runbook — New Tenant First 15 Minutes
 - [`docs/runbooks/production-deploy.md`](../docs/runbooks/production-deploy.md) — Runbook — Production Deployment

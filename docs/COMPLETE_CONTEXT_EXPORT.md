@@ -124,7 +124,7 @@ Before touching a subsystem, read its focused document and ADRs. `docs/MASTER_SP
 | Secrets | OpenBao or equivalent before any client data is live |
 | Virtualisation | Proxmox VE; Proxmox Backup Server |
 
-Versions follow one rule: the newest stable release that every dependency supports (ADR-0032). Targets on 2026-11-14: Python 3.15, Django 6.1, Node.js newest LTS, Next.js 16, PostgreSQL 18. Package managers: uv and pnpm. Technical defaults for R0 and R1 are in ADR-0033; the model gateway is built in-house. Avoid Kubernetes, Kafka, a graph database or a separate vector database until justified.
+Versions follow one rule: the newest stable release that every dependency supports (ADR-0032). Targets on 2026-11-14: Python 3.15, Django 6.1, Node.js newest LTS, Next.js 16, PostgreSQL 18. Package managers: uv and pnpm. Exact pins are in the repository (R0-001, ADR-0034). Technical defaults for R0 and R1 are in ADR-0033; the model gateway is built in-house. Avoid Kubernetes, Kafka, a graph database or a separate vector database until justified.
 
 ## Deployment
 
@@ -323,6 +323,16 @@ A future need is not sufficient reason to deploy Kubernetes, Kafka, Neo4j, a sep
 
 # Changelog
 
+## 2026-11-25 — R0-001 repository and toolchain
+
+- Pinned toolchain: Python 3.15.2 (uv 0.13.10), Node 26.13.1 LTS (pnpm 12.23.0), Django 6.1.3, Next.js 16.4.6, React 19.3.1, TypeScript 7.0.2. Lockfiles committed.
+- `apps/core`: Django skeleton with `/healthz`, request-ID middleware and JSON logs. `apps/web`: Next.js placeholder page with a request-ID proxy.
+- Root `Makefile` holds the gate command contract; `tools/gate_selftest.sh` proves each gate fails on a seeded violation.
+- Pre-commit secret scan (gitleaks, digest-pinned image), `.env.example`, contract schema test.
+- ADR-0034: tooling choices; Node pinned without Corepack; pnpm release cooldown kept.
+- Added `docs/runbooks/developer-bootstrap.md`; gate targets listed in `docs/delivery/gates.md`.
+- `tools/build_docs.py` reformatted by ruff (no behaviour change).
+
 ## 2026-11-25 — repository baseline
 
 - Git initialised on `main`; the specification package is the baseline. `TREE.txt` and `MANIFEST.sha256` retired; Git history is the integrity record.
@@ -487,7 +497,7 @@ An **engineering specification and implementation-control repository**. It conta
 
 ## Project status
 
-Specification complete for R0 and R1; R2 and R3 task contracts written (revision 1). Git initialised on 2026-11-25. No code yet. The live status is in [`docs/handoff/STATUS.md`](docs/handoff/STATUS.md).
+Specification complete for R0 and R1; R2 and R3 task contracts written (revision 1). R0-001 (repository and toolchain) built on 2026-11-25: Django and Next.js skeletons with pinned toolchain and gate commands. Set up a machine with [`docs/runbooks/developer-bootstrap.md`](docs/runbooks/developer-bootstrap.md). The live status is in [`docs/handoff/STATUS.md`](docs/handoff/STATUS.md).
 
 ## Repository layout
 
@@ -544,9 +554,14 @@ Only the current `main` branch and what is deployed from it are supported.
 # FILE: `apps/core/README.md`
 
 # apps/core
-Future Django core/control-plane modular monolith.
+Django core and control-plane modular monolith. Owns business modules and deterministic control logic. External side effects still go through the Action Broker; secrets through the Secrets Broker.
 
-Owns business modules and deterministic control logic. External side effects still go through Action Broker; secrets through Secrets Broker.
+Current as of 2026-11-25 (R0-001): only the `presence_core` project package exists.
+- `presence_core/settings.py`: every setting comes from the environment (see the root `.env.example`). No database until R0-003.
+- `presence_core/urls.py`: `GET /healthz` returns `{"status": "ok"}` and nothing else.
+- `presence_core/observability.py`: request-ID middleware and JSON log formatter. A full OpenTelemetry setup is R0-006.
+
+Run with `make dev-core`; test with `make test`. Setup: [developer bootstrap](../../docs/runbooks/developer-bootstrap.md).
 
 
 ---
@@ -554,9 +569,14 @@ Owns business modules and deterministic control logic. External side effects sti
 # FILE: `apps/web/README.md`
 
 # apps/web
-Future Next.js + TypeScript control-plane frontend.
+Next.js and strict TypeScript control-plane frontend. UI logic must respect Agent Home, accessibility, explicit profile context and authorization semantics.
 
-Do not implement before the relevant R0 task establishes workspace/tooling. UI logic must respect Agent Home, accessibility, explicit profile context and authorization semantics.
+Current as of 2026-11-25 (R0-001): a placeholder page only, to prove the app starts.
+- `proxy.ts` sets an `x-request-id` header and logs one JSON line per request.
+- No environment value is exposed to the browser. Only `NEXT_PUBLIC_` variables would be, and none exist.
+- Node and pnpm versions are pinned in `package.json` (`devEngines`, `packageManager`); see ADR-0034.
+
+Run with `make dev-web`; test with `make test`. Setup: [developer bootstrap](../../docs/runbooks/developer-bootstrap.md).
 
 
 ---
@@ -567,6 +587,8 @@ Do not implement before the relevant R0 task establishes workspace/tooling. UI l
 Future async/browser/sandbox worker code.
 
 Untrusted generated code and risky parsing/browser activity must run under the documented isolation/network policies.
+
+Current as of 2026-11-25: empty. Worker code will join the root Python project (`pyproject.toml`) when its task starts.
 
 
 ---
@@ -636,7 +658,7 @@ Current as of 2026-11-15. These do not block R0 unless marked blocking. Each tas
 
 ## Blocking for R0-001
 
-None. Versions, package managers and repository hosting are decided in ADR-0032. Repository hosting (private GitHub) is a default the owner can still change before the first push.
+None. Resolved and built on 2026-11-25: versions and package managers (ADR-0032, ADR-0034), repository hosting (private GitHub repository created and pushed by the owner on 2026-11-25).
 
 ## R0 and R1 decisions
 
@@ -932,6 +954,9 @@ Solve the highest-value work for the operator's companies and clients first whil
 - Versions: the newest stable release that every required dependency supports; pinned in the repository (ADR-0032).
 - Package managers: uv (Python), pnpm (Node). No monorepo task runner.
 - Repository: private GitHub with GitHub Actions (default; the owner may change it before the first push).
+- Pinned on 2026-11-25 (R0-001): Python 3.15.2, Node 26.13.1 LTS, Django 6.1.3, Next.js 16.4.6, TypeScript 7.0.2, uv 0.13.10, pnpm 12.23.0. Exact pins live in `.python-version`, `pyproject.toml`, `uv.lock`, `apps/web/package.json` and `apps/web/pnpm-lock.yaml`.
+- Node and pnpm are pinned through `packageManager` and `devEngines`, without Corepack; pnpm's one-day release cooldown stays on (ADR-0034).
+- Gate tools: ruff, mypy, Biome, `tsc`, Django test runner, `unittest`, `node:test`, gitleaks, `uv audit`, `pnpm audit`. Gate commands are `make` targets (ADR-0034, `docs/delivery/gates.md`).
 
 ## Delivery
 - R0 Foundation → R1 Kernel → R2 Intelligence → R3 Business Presence → R4 Growth Ops → R5 Expansion.
@@ -2107,6 +2132,50 @@ Product names and versions here were chosen from knowledge on 2026-11-15 without
 - A gateway library: refused; it is a wide dependency in the path of every credential and prompt, and the governing parts must be in-house either way.
 - Prime Agent as primary worker: kept as second worker; can be swapped by the owner.
 - A hosted secrets or observability service: refused for now; it would move secrets or logs outside the home system without need.
+
+
+---
+
+# FILE: `docs/adrs/ADR-0034-r0-001-tooling-choices.md`
+
+# ADR-0034 — R0-001 Tooling Choices and Node Without Corepack
+Status: Accepted (2026-11-25). Made during R0-001 under the owner's delegation in ADR-0032.
+
+## Context
+ADR-0032 chose pnpm "enabled through Corepack". On 2026-11-25 the newest Node LTS is 26.13.1, and Node 26 no longer ships Corepack (its documentation page for v26 returns 404; v24 still has it). R0-001 also had to choose the lint, format and test tools, which no ADR named.
+
+## Decision
+1. **Node and pnpm pinning.** `apps/web/package.json` pins pnpm in `packageManager` and Node in `devEngines.runtime` (`onFail: download`). pnpm downloads both exact versions itself. Corepack is not required. This replaces only the Corepack sentence of ADR-0032 section 3.
+2. **Release cooldown.** pnpm's `minimumReleaseAge` default (one day) stays on. A package newer than that is not pinned; the previous release is used. An exception needs a written reason in the pull request.
+3. **Python gates:** ruff (format and lint) and mypy in strict mode with django-stubs.
+4. **Web gates:** Biome (format and lint, recommended preset, Next and React domains, which include accessibility rules) and `tsc --noEmit`. ESLint and Prettier are not used: one tool instead of three, with a much smaller dependency tree.
+5. **Tests:** Django's test runner and the standard-library `unittest` for Python; `node:test` for the web smoke test. No pytest or Vitest yet. Both can be added later; existing tests still run under them.
+6. **Secret scan:** gitleaks from its official container image, pinned by digest, run by `make scan-secrets` and by the pre-commit hook. **Dependency scan:** the package managers' own `uv audit` and `pnpm audit`.
+7. **No database in R0-001.** PostgreSQL 18 and its driver arrive in R0-003 together with the non-owner runtime role. The psycopg driver is LGPL-3.0 and needs the review note required by ADR-0033 section 3 at that point.
+
+## Alternatives considered
+- Keep Corepack by installing it separately: an extra tool for something pnpm now does itself.
+- ESLint with `eslint-config-next` and Prettier: the Next.js default, but three tools and a much larger dependency tree.
+- pytest with pytest-django: familiar, but two more dependencies that R0-001 does not need.
+
+## Consequences
+- `uv audit` is marked experimental by uv on 2026-11-25; its output format may change.
+- Biome's Next.js rules are fewer than `eslint-config-next`'s. Revisit if a missed rule causes a defect.
+- The gate command contract (Makefile targets) does not depend on these tools; a tool can be swapped without breaking R0-002 or R0-011.
+
+## Security impact
+The cooldown lowers the risk of installing a just-published malicious release. The secret scanner runs from a digest-pinned image, so the hook cannot silently change.
+
+## Cost/operational impact
+None. All tools are free and run locally.
+
+## Migration / rollback
+Revert the commit. No data is involved.
+
+## Supersedes
+ADR-0032 section 3, the Corepack sentence only.
+
+## Superseded by
 
 
 ---
@@ -4435,7 +4504,7 @@ Use interfaces/abstractions that permit later change without paying the operatio
 
 # Gates
 
-Current as of 2026-11-14. A gate is a check that must pass before work moves on. A worker saying "done" is never a gate.
+Current as of 2026-11-25. A gate is a check that must pass before work moves on. A worker saying "done" is never a gate.
 
 ## 1. Every change (run by CI and by the development controller in a clean context)
 
@@ -4458,7 +4527,20 @@ Current as of 2026-11-14. A gate is a check that must pass before work moves on.
 | Provenance | spec hash, start commit, versions, diff and gate results are not recorded; or copied third-party code is found |
 | Accessibility checks | a critical regression in a core journey |
 
-Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and R0-011.
+Gate command names and exit codes are fixed in R0-001 and consumed by R0-002 and R0-011. Each is a target in the root `Makefile`; exit code 0 means pass, any other code means fail. Renaming a target or changing its meaning is a breaking change.
+
+| Make target | Gates it runs |
+|---|---|
+| `make fmt-check` | Format (ruff, Biome) |
+| `make lint` | Lint (ruff, Biome) |
+| `make typecheck` | Type check (mypy strict, `tsc`) |
+| `make test` | Unit tests, contract schemas, web build and smoke test |
+| `make check` | All four above, in order |
+| `make audit` | Dependency vulnerability scan (`uv audit`, `pnpm audit --audit-level high`) |
+| `make scan-secrets` | Secret scan of the whole Git history (gitleaks) |
+| `make scan-staged` | Secret scan of staged changes; run by the pre-commit hook |
+
+`tools/gate_selftest.sh` proves each gate fails on a seeded violation. The other gates in the table above (tenant isolation, authorization, migrations, import boundary, licence check, lockfile review, protected paths, provenance, accessibility) are added by the tasks that introduce what they check.
 
 ## 2. Every task
 
@@ -6823,6 +6905,60 @@ Before any DNS-provider migration, inventory MX/SPF/DKIM/DMARC and other records
 
 ---
 
+# FILE: `docs/runbooks/developer-bootstrap.md`
+
+# Developer Bootstrap
+
+Current as of 2026-11-25. Takes a new Linux machine from a clean clone to green gates. Tested from a clean clone on 2026-11-25 (R0-001).
+
+## 1. Install once per machine
+| Tool | Why | How |
+|---|---|---|
+| Git, GNU Make | clone and gate commands | system package manager |
+| uv 0.13.10 | installs Python 3.15.2 and the Python packages | [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/); then `uv self update 0.13.10` |
+| pnpm (any 10.x or newer) | installs Node 26.13.1 and the web packages | [pnpm installation guide](https://pnpm.io/installation) |
+| Docker | runs the pinned gitleaks secret scanner | Docker Engine; your user must be able to run `docker` |
+
+You do not install Python or Node yourself. uv reads `.python-version`; pnpm reads `packageManager` and `devEngines` in `apps/web/package.json` and downloads the exact pinned versions. Node 26 no longer ships Corepack (ADR-0034).
+
+## 2. Set up the clone
+```bash
+git clone https://github.com/iamwaqargulzar/presence-os.git
+cd presence-os
+make bootstrap
+cp .env.example .env
+```
+`make bootstrap` installs both lockfiles exactly (`--locked`, `--frozen-lockfile`) and turns on the pre-commit secret scan (`git config core.hooksPath .githooks`).
+
+Edit `.env` and set `PRESENCE_SECRET_KEY` to the output of:
+```bash
+uv run python -c "import secrets; print(secrets.token_urlsafe(50))"
+```
+`.env` is ignored by Git. Never commit it.
+
+## 3. Check everything
+```bash
+make check
+make audit
+make scan-secrets
+tools/gate_selftest.sh
+```
+All four must exit 0. The gate names are listed in [gates.md](../delivery/gates.md).
+
+## 4. Start the apps
+- `make dev-core`: Django on http://127.0.0.1:8000/healthz returns `{"status": "ok"}`.
+- `make dev-web`: Next.js on http://127.0.0.1:3000/ shows the placeholder page.
+
+Both bind to 127.0.0.1 only. Both print one JSON log line per request with a `request_id`, and return it in the `X-Request-ID` header.
+
+## Troubleshooting
+- `Required uv version ... does not match`: run `uv self update 0.13.10`.
+- pnpm refuses a package "within the minimumReleaseAge cutoff": the package is less than a day old. Pin the previous release; do not add an exception without a review (ADR-0034).
+- `make scan-staged` or a commit fails with a Docker error: Docker is not running or your user cannot use it. The hook fails closed on purpose.
+
+
+---
+
 # FILE: `docs/runbooks/model-harness-qualification.md`
 
 # Runbook — Model/Harness Qualification
@@ -8293,6 +8429,8 @@ R0 will add reproducible configuration/runbooks for the four-VM topology and bac
 
 # packages
 Shared generated/typed contracts and reusable libraries may live here when justified. Avoid creating a monorepo package for every conceptual module.
+
+Current as of 2026-11-25: empty. R0-001 needed no shared package.
 
 
 ---
