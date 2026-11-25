@@ -43,7 +43,7 @@ Sources: PyPI JSON API, GitHub releases of `temporalio/temporal`, `temporalio/cl
 - Payloads above 64 KiB are rejected by the shared codec; the integration test checks that a larger draft stays out of history.
 - Signals carry no authority: the decision is recorded and `revalidate()` runs before the effect (ADR-0003).
 - Tenant and profile IDs are validated (`[A-Za-z0-9._-]`, 1 to 64 characters) because they become part of workflow IDs and file paths.
-- No secret in source, history or fixtures; the committed history holds only test IDs and generated text.
+- No secret in source, history or fixtures; the committed history holds only test IDs and generated text. Because the worktree hook scans nothing, the changed files were scanned with `gitleaks dir`: no leaks. Test request keys are kept under 10 characters so the generic key rule does not flag the recorded history.
 - The SDK time-skipping server is not used because it downloads an unpinned binary (ADR-0036).
 
 ## Acceptance criteria
