@@ -2,7 +2,7 @@
 
 Written 2026-11-25. Spec: [R0-003](../../../specs/R0/R0-003-postgres-rls.md). Decisions: [ADR-0036](../../../docs/adrs/ADR-0036-postgres-roles-and-tenant-context.md). Design: [database tenancy and RLS](../../../docs/security/database-tenancy-rls.md).
 
-- Starting commit: `00d2b03` (fix(docs): skip agent worktrees when building the context export), branch based on R0-002.
+- Starting commit: `00d2b03` (fix(docs): skip agent worktrees when building the context export), branch based on R0-002; R0-002's worktree secret-scan fix (`f208a1c`) merged in afterwards.
 - Resulting commit: the head of branch `feat/R0-003-postgres-rls`. It contains this report, so it cannot name its own hash.
 - Execution profile: autonomous side session started by the operator's coordinating session; the owner was away.
 - Harness: Claude Code, desktop app.
@@ -35,7 +35,9 @@ None added.
   - migration 0001 reverses and reapplies;
   - an RLS denial is logged without row contents.
 - `make check` passes (format, lint, mypy strict, unit tests, web build and tests).
-- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths pass. `gate-selftest` fails locally on one check: the dockerized gitleaks cannot read the main `.git` from inside a Git worktree, scans 0 commits and exits 0. This is the worktree environment, not this change; it does not occur in CI's normal checkout. See known limitations.
+- `python3 tools/ci_run.py`: static, unit, integration, security and protected-paths pass.
+- After merging `f208a1c`, rerun in this worktree: `make check`, `make scan-secrets` (9 commits scanned, no leaks), `make test-integration` (12 tests) and `tools/gate_selftest.sh` (all gates reject seeded violations, including the pre-commit secret scan) all pass.
+- The first commit (`4634b15`) ran the pre-commit hook (no `--no-verify`), but before `f208a1c` the hook's gitleaks scanned nothing in a worktree; its diff was checked for secrets by hand, and `make scan-secrets` now covers it.
 
 ## Security checks
 - Isolation is enforced by the database for both roles (FORCE), so the owner role cannot cross tenants by accident either.
@@ -65,7 +67,6 @@ Not measured; the desktop session does not expose usage to the worker. No paid s
 ## Known limitations
 - `presence_migrator` has CREATEDB for test databases; production provisioning must omit it.
 - `django_migrations` and `django_content_type` were created before the default privileges and are not granted to `presence_app`.
-- `tools/gate_selftest.sh` secret-scan check fails inside a Git worktree (dockerized gitleaks sees no repository and passes). The scan fails open on a git error there; worth a follow-up so it fails closed.
 - `.github/workflows/ci.yml` and `Makefile` are protected paths; the pull request needs the owner's label.
 
 ## Docs updated
