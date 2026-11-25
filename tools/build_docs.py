@@ -16,7 +16,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TODAY = datetime.date.today().isoformat()
 GENERATED = {"docs/MASTER_SPEC.md", "docs/COMPLETE_CONTEXT_EXPORT.md", "docs/INDEX.md"}
-SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", ".next", ".mypy_cache", ".ruff_cache"}
+SKIP_DIRS = {".git", ".claude", "node_modules", "__pycache__", ".venv", ".next", ".mypy_cache", ".ruff_cache"}
 
 
 def files():
