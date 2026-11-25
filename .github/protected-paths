@@ -11,3 +11,4 @@ specs/*
 contracts/tests/*
 AGENTS.md
 CLAUDE.md
+.gitleaksignore
